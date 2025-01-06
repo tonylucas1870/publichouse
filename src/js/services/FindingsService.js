@@ -6,16 +6,15 @@ import { getCurrentDate } from '../utils/dateUtils.js';
 export class FindingsService {
   async getFindings(changeoverId) {
     try {
-      console.debug('FindingsService: Getting findings', { changeoverId });
-
       // Get current user first
       const { data: { user } } = await supabase.auth.getUser();
-      console.debug('FindingsService: Current user', { userId: user?.id });
 
-      const { data: changeover, error: changeoverError } = await supabase
+      // Verify changeover exists and get property info
+      const { data: changeover, error: changeoverError } = await supabase 
         .from('changeovers')
         .select(`
           id,
+          share_token,
           property:properties (
             id,
             created_by,
@@ -27,18 +26,10 @@ export class FindingsService {
 
       if (changeoverError) throw changeoverError;
 
-      console.debug('FindingsService: Changeover data', {
-        id: changeover.id,
-        propertyId: changeover.property?.id,
-        propertyOwnerId: changeover.property?.created_by
-      });
-      
-      // Check access
-      if (!user || user.id !== changeover.property?.created_by) {
+      // Check access - allow if shared or owner
+      if (!changeover.share_token && (!user || user.id !== changeover.property?.created_by)) {
         throw new Error('Access denied');
       }
-
-      console.debug('FindingsService: Fetching findings with content items');
 
       const { data, error } = await supabase
         .from('findings').select(`
@@ -63,13 +54,6 @@ export class FindingsService {
 
       if (error) throw error;
       
-      console.debug('FindingsService: Got findings', {
-        count: data?.length,
-        firstFinding: data?.[0],
-        hasContentItem: data?.[0]?.content_item !== null && data?.[0]?.content_item !== undefined,
-        contentItem: data?.[0]?.content_item
-      });
-
       return data || [];
     } catch (error) {
       console.error('FindingsService: Error getting findings', error);
@@ -92,6 +76,7 @@ export class FindingsService {
           date_found,
           status,
           notes,
+          content_item,
           changeover:changeovers (
             id,
             property:properties (
@@ -119,11 +104,6 @@ export class FindingsService {
 
   async add({ description, location, content_item, images, changeoverId }) {
     try {
-      console.debug('FindingsService: Adding finding with content item', {
-        hasContentItem: content_item !== null && content_item !== undefined,
-        content_item
-      });
-
       // Verify changeover access first
       const { data: changeover, error: changeoverError } = await supabase
         .from('changeovers')
@@ -150,13 +130,6 @@ export class FindingsService {
         images.map(image => uploadFile('findings', image))
       );
 
-      console.debug('FindingsService: Creating finding record', {
-        description,
-        location,
-        content_item,
-        imageCount: uploadedUrls.length
-      });
-
       const { data, error } = await supabase
         .from('findings')
         .insert({
@@ -174,11 +147,6 @@ export class FindingsService {
 
       if (error) throw error;
       
-      console.debug('FindingsService: Created finding', {
-        id: data.id,
-        hasContentItem: !!data.content_item
-      });
-
       return data;
     } catch (error) {
       console.error('FindingsService: Error adding finding', error);
