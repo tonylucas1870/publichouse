@@ -94,12 +94,19 @@ export class PendingFindingsList {
     // Get the first image from the images array for the thumbnail
     const thumbnailImage = finding.images?.[0];
     const hasMultipleImages = finding.images?.length > 1;
+    const contentItem = finding.content_item;
 
     return `
       <div class="list-group-item finding-item mb-2" data-finding-id="${finding.id}" style="cursor: pointer">
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="mb-1">${finding.description}</h6>
+            ${contentItem ? `
+              <p class="mb-1 text-muted small d-flex align-items-center gap-1">
+                ${IconService.createIcon('Package', { width: '14', height: '14' })}
+                ${contentItem.name}
+              </p>
+            ` : ''}
             <p class="mb-1 text-muted small">
               ${IconService.createIcon('MapPin', { width: '14', height: '14' })}
               ${finding.location} at ${finding.changeover?.property?.name || 'Unknown Property'}
