@@ -101,15 +101,10 @@ export class PendingFindingsList {
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="mb-1">${finding.description}</h6>
-            ${contentItem ? `
-              <p class="mb-1 text-muted small d-flex align-items-center gap-1">
-                ${IconService.createIcon('Package', { width: '14', height: '14' })}
-                ${contentItem.name}
-              </p>
-            ` : ''}
+        
             <p class="mb-1 text-muted small">
               ${IconService.createIcon('MapPin', { width: '14', height: '14' })}
-              ${finding.location} at ${finding.changeover?.property?.name || 'Unknown Property'}
+              ${contentItem.name} in ${finding.location} at ${finding.changeover?.property?.name || 'Unknown Property'}
             </p>
             <small class="text-muted d-flex align-items-center gap-1">
               ${IconService.createIcon('Clock', { width: '14', height: '14' })}

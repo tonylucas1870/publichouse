@@ -33,14 +33,10 @@ export class FindingCard {
             <small class="text-muted">${formatDate(finding.date_found)}</small>
           </div>
           <p class="card-text">${finding.description}</p>
-          ${finding.content_item ? `
-            <p class="card-text text-muted d-flex align-items-center gap-1 mb-2">
-              ${IconService.createIcon('Package', { width: '16', height: '16' })}
-              ${finding.content_item.name}
-            </p>
-          ` : ''}
+         
           <p class="card-text text-muted d-flex align-items-center gap-1">
             ${IconService.createIcon('MapPin', { width: '16', height: '16' })}
+             ${finding.content_item.name} @
             ${finding.location}
           </p>
         </div>
