@@ -17,8 +17,12 @@ export class ContentsModal {
         const findingsContainer = modal.querySelector('#findingsContainer');
         if (findingsContainer && findings.length > 0) {
           findingsContainer.innerHTML = `
-            <div class="mt-4">
-              <h6 class="mb-3">Related Findings</h6>
+            <hr class="my-4">
+            <div>
+              <h6 class="mb-3 d-flex align-items-center gap-2">
+                ${IconService.createIcon('Search')}
+                Related Findings
+              </h6>
               <div class="list-group list-group-flush">
                 ${findings.map(finding => `
                   <div class="list-group-item finding-item" data-finding-id="${finding.id}">
@@ -85,17 +89,6 @@ export class ContentsModal {
           `;
         }
       }
-    }
-
-    // Add findings button
-    const findingsBtn = modal.querySelector('#viewFindingsBtn');
-    if (findingsBtn) {
-      findingsBtn.addEventListener('click', () => {
-        closeModal();
-        import('./ContentItemFindings.js').then(({ ContentItemFindings }) => {
-          ContentItemFindings.show(item, findingsService); 
-        });
-      });
     }
 
     // Initialize carousel if we have multiple images
@@ -165,10 +158,6 @@ export class ContentsModal {
                     <div class="form-control-plaintext">
                       ${item.description || 'No description provided'}
                     </div>
-                    <button class="btn btn-outline-primary btn-sm" id="viewFindingsBtn">
-                      ${IconService.createIcon('Search')}
-                      View Findings
-                    </button>
                   </div>
                 </div>
                 <div id="findingsContainer"></div>

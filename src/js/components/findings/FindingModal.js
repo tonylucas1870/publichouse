@@ -158,8 +158,8 @@ export class FindingModal {
         e.preventDefault();
         const itemData = JSON.parse(contentItemLink.dataset.item);
         console.debug('FindingModal: Opening content item modal', itemData);
-        import('../room/ContentsModal.js').then(({ ContentsModal }) => {
-          ContentsModal.show(itemData);
+        import('../room/ContentItemFindings.js').then(({ ContentItemFindings }) => {
+          ContentItemFindings.show(itemData, findingsService);
         });
       });
     }
