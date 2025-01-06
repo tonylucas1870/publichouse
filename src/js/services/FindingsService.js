@@ -61,6 +61,38 @@ export class FindingsService {
     }
   }
 
+  async getFinding(findingId) {
+    try {
+      const { data, error } = await supabase
+        .from('findings')
+        .select(`
+          id,
+          description,
+          location,
+          images,
+          date_found,
+          status,
+          notes,
+          content_item,
+          changeover:changeovers (
+            id,
+            property:properties (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('id', findingId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('FindingsService: Error getting finding', error);
+      throw handleSupabaseError(error, 'Failed to load finding');
+    }
+  }
+
   async getPendingFindings() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
