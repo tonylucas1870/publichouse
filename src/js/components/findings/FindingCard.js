@@ -36,7 +36,7 @@ export class FindingCard {
          
           <p class="card-text text-muted d-flex align-items-center gap-1">
             ${IconService.createIcon('MapPin', { width: '16', height: '16' })}
-             ${finding.content_item.name} @
+             ${finding.content_item ? `${finding.content_item.name} @` : ''}
             ${finding.location}
           </p>
         </div>

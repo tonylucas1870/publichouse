@@ -1,11 +1,102 @@
 import { IconService } from '../../services/IconService.js';
+import { formatDate } from '../../utils/dateUtils.js';
+import { StatusBadge } from '../ui/StatusBadge.js';
+import { FindingModal } from '../findings/FindingModal.js';
 
 export class ContentsModal {
-  static show(item) {
+  static async show(item, findingsService) {
     const { modal, closeModal } = this.createModal(item);
     document.body.appendChild(modal);
     document.body.classList.add('modal-open');
-    console.debug('ContentsModal: Modal created and added to DOM');
+    console.debug('ContentsModal: Modal created', { item });
+
+    // Load findings if we have a findings service
+    if (findingsService) {
+      try {
+        const findings = await findingsService.getFindingsByContentItem(item.name || '');
+        const findingsContainer = modal.querySelector('#findingsContainer');
+        if (findingsContainer && findings.length > 0) {
+          findingsContainer.innerHTML = `
+            <div class="mt-4">
+              <h6 class="mb-3">Related Findings</h6>
+              <div class="list-group list-group-flush">
+                ${findings.map(finding => `
+                  <div class="list-group-item finding-item" data-finding-id="${finding.id}">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                          ${StatusBadge.render(finding.status)}
+                          <small class="text-muted">${formatDate(finding.date_found)}</small>
+                        </div>
+                        <p class="mb-1">${finding.description}</p>
+                        <small class="text-muted d-flex align-items-center gap-1">
+                          ${IconService.createIcon('MapPin', { width: '14', height: '14' })}
+                          ${finding.location}
+                        </small>
+                      </div>
+                      <div class="ms-3">
+                        <img 
+                          src="${finding.images[0]?.url || finding.images[0]}" 
+                          alt="Finding thumbnail" 
+                          class="rounded" 
+                          style="width: 60px; height: 60px; object-fit: cover"
+                        >
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+
+          // Attach click handlers for findings
+          findingsContainer.querySelectorAll('.finding-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const findingId = item.dataset.findingId;
+              const finding = findings.find(f => f.id === findingId);
+              if (finding) {
+                closeModal();
+                FindingModal.show(
+                  finding,
+                  findingsService,
+                  async (findingId, status) => {
+                    await findingsService.updateStatus(findingId, status);
+                    // Reopen content modal with refreshed data
+                    ContentsModal.show(item, findingsService);
+                  },
+                  async (findingId, text) => {
+                    await findingsService.addNote(findingId, text);
+                    // Reopen content modal with refreshed data
+                    ContentsModal.show(item, findingsService);
+                  }
+                );
+              }
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error loading findings:', error);
+        const findingsContainer = modal.querySelector('#findingsContainer');
+        if (findingsContainer) {
+          findingsContainer.innerHTML = `
+            <div class="alert alert-danger">
+              Failed to load findings
+            </div>
+          `;
+        }
+      }
+    }
+
+    // Add findings button
+    const findingsBtn = modal.querySelector('#viewFindingsBtn');
+    if (findingsBtn) {
+      findingsBtn.addEventListener('click', () => {
+        closeModal();
+        import('./ContentItemFindings.js').then(({ ContentItemFindings }) => {
+          ContentItemFindings.show(item, findingsService); 
+        });
+      });
+    }
 
     // Initialize carousel if we have multiple images
     if (item.images?.length > 1) {
@@ -70,10 +161,17 @@ export class ContentsModal {
               <div class="col-12">
                 <div class="mb-3">
                   <label class="form-label">Description</label>
-                  <div class="form-control-plaintext">
-                    ${item.description || 'No description provided'}
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div class="form-control-plaintext">
+                      ${item.description || 'No description provided'}
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" id="viewFindingsBtn">
+                      ${IconService.createIcon('Search')}
+                      View Findings
+                    </button>
                   </div>
                 </div>
+                <div id="findingsContainer"></div>
               </div>
             </div>
           </div>

@@ -93,6 +93,38 @@ export class FindingsService {
     }
   }
 
+  async getFindingsByContentItem(contentItemName) {
+    try {
+      const { data, error } = await supabase
+        .from('findings')
+        .select(`
+          id,
+          description,
+          location,
+          images,
+          date_found,
+          status,
+          notes,
+          content_item,
+          changeover:changeovers (
+            id,
+            property:properties (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('content_item->>name', contentItemName)
+        .order('date_found', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('FindingsService: Error getting findings by content item', error);
+      throw handleSupabaseError(error, 'Failed to load findings');
+    }
+  }
+
   async getPendingFindings() {
     try {
       const { data: { user } } = await supabase.auth.getUser();

@@ -93,7 +93,6 @@ export class FindingsList {
           FindingModal.show(
             finding,
             this.findingsService,
-            this.findingsService, // Pass findingsService instance
             async (findingId, status) => this.handleUpdateStatus(findingId, status),
             async (findingId, text) => this.handleAddNote(findingId, text)
           );

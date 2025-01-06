@@ -1,5 +1,6 @@
 import { IconService } from '../../services/IconService.js';
 import { RoomDetailsService } from '../../services/RoomDetailsService.js';
+import { FindingsService } from '../../services/FindingsService.js';
 import { ContentsForm } from './ContentsForm.js';
 import { WallForm } from './WallForm.js';
 import { LightingForm } from './LightingForm.js';
@@ -13,6 +14,7 @@ export class RoomDetails {
     this.roomName = roomName;
     this.isAdmin = isAdmin;
     this.roomDetailsService = new RoomDetailsService();
+    this.findingsService = new FindingsService();
     this.details = null;
     this.isEditing = false;
     this.isSaving = false;
@@ -134,8 +136,8 @@ export class RoomDetails {
       this.container.querySelectorAll('.contents-item').forEach(item => {
         item.addEventListener('click', () => {
           const itemData = JSON.parse(item.dataset.item);
-          import('./ContentsModal.js').then(({ ContentsModal }) => {
-            ContentsModal.show(itemData);
+          import('./ContentsModal.js').then(async ({ ContentsModal }) => {
+            await ContentsModal.show(itemData, this.findingsService);
           });
         });
       });
