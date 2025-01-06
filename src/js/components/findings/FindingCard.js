@@ -6,7 +6,7 @@ export class FindingCard {
   static render(finding) {
     console.debug('FindingCard: Rendering finding', {
       id: finding.id,
-      hasContentItem: !!finding.content_item,
+      hasContentItem: finding.content_item !== null && finding.content_item !== undefined,
       contentItem: finding.content_item
     });
     

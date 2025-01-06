@@ -6,14 +6,12 @@ import { getCurrentDate } from '../utils/dateUtils.js';
 export class FindingsService {
   async getFindings(changeoverId) {
     try {
-      console.debug('FindingsService: Getting findings with content items', { changeoverId });
+      console.debug('FindingsService: Getting findings', { changeoverId });
 
       // Get current user first
       const { data: { user } } = await supabase.auth.getUser();
-      
       console.debug('FindingsService: Current user', { userId: user?.id });
 
-      console.debug('FindingsService: Verifying changeover access');
       const { data: changeover, error: changeoverError } = await supabase
         .from('changeovers')
         .select(`
@@ -28,25 +26,22 @@ export class FindingsService {
         .single();
 
       if (changeoverError) throw changeoverError;
+
       console.debug('FindingsService: Changeover data', {
-        shareToken: changeover.share_token,
-        propertyOwnerId: changeover.property?.created_by,
-        userId: user?.id
+        id: changeover.id,
+        propertyId: changeover.property?.id,
+        propertyOwnerId: changeover.property?.created_by
       });
       
       // Check access
       if (!user || user.id !== changeover.property?.created_by) {
-        console.debug('FindingsService: Access denied', {
-          isAuthenticated: !!user,
-          isOwner: user?.id === changeover.property?.created_by
-        });
         throw new Error('Access denied');
       }
 
       console.debug('FindingsService: Fetching findings with content items');
+
       const { data, error } = await supabase
-        .from('findings')
-        .select(`
+        .from('findings').select(`
           id,
           description,
           location,
@@ -71,7 +66,8 @@ export class FindingsService {
       console.debug('FindingsService: Got findings', {
         count: data?.length,
         firstFinding: data?.[0],
-        hasContentItem: data?.[0]?.content_item !== undefined
+        hasContentItem: data?.[0]?.content_item !== null && data?.[0]?.content_item !== undefined,
+        contentItem: data?.[0]?.content_item
       });
 
       return data || [];
@@ -121,11 +117,11 @@ export class FindingsService {
     }
   }
 
-  async add({ description, location, contentItem, images, changeoverId }) {
+  async add({ description, location, content_item, images, changeoverId }) {
     try {
       console.debug('FindingsService: Adding finding with content item', {
-        hasContentItem: !!contentItem,
-        contentItem
+        hasContentItem: content_item !== null && content_item !== undefined,
+        content_item
       });
 
       // Verify changeover access first
@@ -157,7 +153,7 @@ export class FindingsService {
       console.debug('FindingsService: Creating finding record', {
         description,
         location,
-        contentItem,
+        content_item,
         imageCount: uploadedUrls.length
       });
 
@@ -166,7 +162,7 @@ export class FindingsService {
         .insert({
           description,
           location,
-          content_item: contentItem,
+          content_item,
           images: uploadedUrls.map(url => url.publicUrl),
           changeover_id: changeoverId,
           status: 'pending',

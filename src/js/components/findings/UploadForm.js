@@ -150,7 +150,7 @@ export class UploadForm {
         console.debug('UploadForm: Submitting finding', {
           description: form.description.value.trim(),
           location: this.roomSelect.getValue(),
-          hasContentItem: !!contentItem,
+          hasContentItem: contentItem !== null && contentItem !== undefined,
           contentItem,
           imageCount: this.selectedImages.length
         });
@@ -158,7 +158,7 @@ export class UploadForm {
         await this.findingsService.add({
           description: form.description.value.trim(),
           location: this.roomSelect.getValue(),
-          contentItem,
+          content_item: contentItem, // Match the database column name
           images: this.selectedImages.map(img => img.file),
           changeoverId: this.changeoverId
         });

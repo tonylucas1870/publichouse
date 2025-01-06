@@ -7,8 +7,21 @@ import { authStore } from '../../auth/AuthStore.js';
 
 export class FindingModal {
   static show(finding, onUpdateStatus, onAddNote) {
+    console.debug('FindingModal: Showing finding details', {
+      id: finding.id,
+      hasContentItem: finding.content_item !== null && finding.content_item !== undefined,
+      contentItem: finding.content_item
+    });
+
     const isEditable = authStore.isAuthenticated();
     const images = Array.isArray(finding.images) ? finding.images : [finding.image_url];
+
+    console.debug('FindingModal: Content item check', {
+      contentItem: finding.content_item,
+      type: typeof finding.content_item,
+      isNull: finding.content_item === null,
+      isUndefined: finding.content_item === undefined
+    });
 
     const { modal, closeModal } = Modal.show({
       title: 'Finding Details',
@@ -26,18 +39,21 @@ export class FindingModal {
               <label class="form-label">Status</label>
               ${StatusSelect.render(finding.status, isEditable)}
             </div>
+
             <div class="mb-3">
               <label class="form-label">Date Found</label>
               <div class="form-control-plaintext">
                 ${formatDate(finding.date_found)}
               </div>
             </div>
+
             <div class="mb-3">
               <label class="form-label">Description</label>
               <div class="form-control-plaintext">
                 ${finding.description}
               </div>
             </div>
+
             ${finding.content_item ? `
               <div class="mb-3">
                 <label class="form-label d-flex align-items-center gap-2">
@@ -53,6 +69,7 @@ export class FindingModal {
                 </div>
               </div>
             ` : ''}
+
             <div class="mb-3">
               <label class="form-label d-flex align-items-center gap-2">
                 ${IconService.createIcon('MapPin')}
@@ -62,6 +79,7 @@ export class FindingModal {
                 ${finding.location}
               </div>
             </div>
+
             <hr>
             ${FindingNotes.render(finding.notes || [])}
           </div>
@@ -73,13 +91,16 @@ export class FindingModal {
     if (images.length > 1) {
       this.initializeCarousel(modal, images);
     }
-
+    
     // Attach content item click handler
     const contentItemLink = modal.querySelector('.view-content-item');
+    console.debug('FindingModal: Content item link found:', !!contentItemLink);
+    
     if (contentItemLink) {
       contentItemLink.addEventListener('click', (e) => {
         e.preventDefault();
         const itemData = JSON.parse(contentItemLink.dataset.item);
+        console.debug('FindingModal: Opening content item modal', itemData);
         import('../room/ContentsModal.js').then(({ ContentsModal }) => {
           ContentsModal.show(itemData);
         });
