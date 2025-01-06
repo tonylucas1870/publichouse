@@ -6,16 +6,16 @@ export class FindingCard {
   static render(finding) {
     console.debug('FindingCard: Rendering finding', {
       id: finding.id,
-      hasContentItem: finding.content_item !== null && finding.content_item !== undefined,
-      contentItem: finding.content_item
+      hasContentItem: finding.content_item !== null && finding.content_item !== undefined
     });
     
-    const mainImage = finding.images[0];
+    // Handle both string and object image formats
+    const mainImage = finding.images[0]?.url || finding.images[0];
     
     return `
       <div class="card h-100" style="cursor: pointer">
         <img
-          src="${finding.images[0]}"
+          src="${mainImage}"
           alt="${finding.description}"
           class="card-img-top"
           style="height: 200px; object-fit: cover"

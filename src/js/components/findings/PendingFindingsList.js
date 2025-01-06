@@ -91,8 +91,8 @@ export class PendingFindingsList {
   }
 
   renderFindingItem(finding) {
-    // Get the first image from the images array for the thumbnail
-    const thumbnailImage = finding.images?.[0];
+    // Handle both string and object image formats
+    const thumbnailImage = finding.images?.[0]?.url || finding.images?.[0];
     const hasMultipleImages = finding.images?.length > 1;
     const contentItem = finding.content_item;
 

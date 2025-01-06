@@ -16,6 +16,7 @@ export function getStoragePath(bucket, fileName) {
 export async function uploadFile(bucket, file, options = {}) {
   const fileName = createStorageFileName(file.name);
   const filePath = getStoragePath(bucket, fileName);
+  const uploadedAt = new Date().toISOString();
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
@@ -31,5 +32,5 @@ export async function uploadFile(bucket, file, options = {}) {
     .from(bucket)
     .getPublicUrl(filePath);
 
-  return { fileName, filePath, publicUrl };
+  return { fileName, filePath, publicUrl, uploadedAt };
 }

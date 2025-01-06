@@ -5,25 +5,18 @@ import { formatDate } from '../../utils/dateUtils.js';
 import { FindingNotes } from './FindingNotes.js';
 import { authStore } from '../../auth/AuthStore.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
+import { uploadFile } from '../../utils/storageUtils.js';
 import { formatDateTime } from '../../utils/dateUtils.js';
 
 export class FindingModal {
   static show(finding, findingsService, onUpdateStatus, onAddNote) {
     console.debug('FindingModal: Showing finding details', {
       id: finding.id,
-      hasContentItem: finding.content_item !== null && finding.content_item !== undefined,
-      contentItem: finding.content_item
+      hasContentItem: finding.content_item !== null && finding.content_item !== undefined
     });
 
     const isEditable = authStore.isAuthenticated();
     const images = Array.isArray(finding.images) ? finding.images : [finding.image_url];
-
-    console.debug('FindingModal: Content item check', {
-      contentItem: finding.content_item,
-      type: typeof finding.content_item,
-      isNull: finding.content_item === null,
-      isUndefined: finding.content_item === undefined
-    });
 
     const { modal, closeModal } = Modal.show({
       title: 'Finding Details',
@@ -33,6 +26,15 @@ export class FindingModal {
           <!-- Image Column -->
           <div class="col-12 col-lg-6">
             ${this.renderImageCarousel(images)}
+            ${isEditable ? `
+              <div class="mt-3">
+                <input type="file" id="additionalImage" accept="image/*" class="d-none" multiple>
+                <button class="btn btn-outline-primary btn-sm w-100" id="addPhotosBtn">
+                  ${IconService.createIcon('Upload')}
+                  Add More Photos
+                </button>
+              </div>
+            ` : ''}
           </div>
           
           <!-- Details Column -->
@@ -82,7 +84,6 @@ export class FindingModal {
               </div>
             </div>
 
-            <hr>
             ${FindingNotes.render(finding.notes || [])}
           </div>
         </div>
@@ -92,6 +93,62 @@ export class FindingModal {
     // Initialize carousel if we have multiple images
     if (images.length > 1) {
       this.initializeCarousel(modal, images);
+    }
+
+    // Attach photo upload handler
+    const addPhotosBtn = modal.querySelector('#addPhotosBtn');
+    const imageInput = modal.querySelector('#additionalImage');
+    if (addPhotosBtn && imageInput) {
+      addPhotosBtn.addEventListener('click', () => imageInput.click());
+      imageInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        try {
+          // Disable button while uploading
+          addPhotosBtn.disabled = true;
+          addPhotosBtn.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Uploading...
+          `;
+
+          // Upload all images
+          const uploadedUrls = await Promise.all(
+            files.map(file => uploadFile('findings', file))
+          );
+          
+          // Get current finding data
+          const updatedFinding = await findingsService.getFinding(finding.id);
+          if (updatedFinding) {
+            // Update images array
+            const newImages = [
+              ...updatedFinding.images,
+              ...uploadedUrls.map(({ publicUrl, uploadedAt }) => ({
+                url: publicUrl,
+                uploadedAt
+              }))
+            ];
+
+            // Update finding with new images
+            await findingsService.updateImages(finding.id, newImages);
+
+            // Close and reopen modal with updated finding
+            closeModal();
+            const refreshedFinding = await findingsService.getFinding(finding.id);
+            FindingModal.show(refreshedFinding, findingsService, onUpdateStatus, onAddNote);
+          }
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          showErrorAlert('Failed to upload images. Please try again.');
+          
+          // Reset button state
+          addPhotosBtn.disabled = false;
+          addPhotosBtn.innerHTML = `
+            ${IconService.createIcon('Upload')}
+            Add More Photos
+          `;
+        }
+      });
     }
     
     // Attach content item click handler
@@ -145,19 +202,26 @@ export class FindingModal {
     if (!images || images.length === 0) return '';
 
     const hasMultipleImages = images.length > 1;
+    const normalizedImages = images.map(img => typeof img === 'string' ? { url: img } : img);
 
     return `
       <div class="image-section">
         <div id="findingImages" class="carousel slide mb-3" data-bs-ride="false">
           <div class="carousel-inner">
-            ${images.map((image, index) => `
+            ${normalizedImages.map((image, index) => `
               <div class="carousel-item ${index === 0 ? 'active' : ''}">
                 <img
-                  src="${image}"
+                  src="${image.url}"
                   alt="Finding image ${index + 1}"
                   class="d-block w-100 rounded"
                   style="max-height: 400px; object-fit: contain; background: #f8f9fa"
                 />
+                ${image.uploadedAt ? `
+                  <div class="text-muted small text-center mt-2">
+                    ${IconService.createIcon('Clock', { width: '14', height: '14' })}
+                    Uploaded ${formatDateTime(image.uploadedAt)}
+                  </div>
+                ` : ''}
               </div>
             `).join('')}
           </div>
@@ -193,12 +257,13 @@ export class FindingModal {
   }
 
   static renderThumbnails(images) {
+    const normalizedImages = images.map(img => typeof img === 'string' ? { url: img } : img);
     return `
       <div class="row g-2">
-        ${images.map((image, index) => `
+        ${normalizedImages.map((image, index) => `
           <div class="col-3">
             <img
-              src="${image}"
+              src="${image.url}"
               alt="Thumbnail ${index + 1}"
               class="img-thumbnail thumbnail-nav${index === 0 ? ' active' : ''}"
               data-index="${index}"

@@ -168,7 +168,10 @@ export class FindingsService {
           description,
           location,
           content_item,
-          images: uploadedUrls.map(url => url.publicUrl),
+          images: uploadedUrls.map(({ publicUrl, uploadedAt }) => ({
+            url: publicUrl,
+            uploadedAt
+          })),
           changeover_id: changeoverId,
           status: 'pending',
           date_found: getCurrentDate(),
@@ -183,6 +186,19 @@ export class FindingsService {
     } catch (error) {
       console.error('FindingsService: Error adding finding', error);
       throw handleSupabaseError(error, 'Failed to add finding');
+    }
+  }
+
+  async updateImages(findingId, images) {
+    try {
+      const { error } = await supabase
+        .from('findings')
+        .update({ images })
+        .eq('id', findingId);
+
+      if (error) throw error;
+    } catch (error) {
+      throw handleSupabaseError(error, 'Failed to update finding images');
     }
   }
 
