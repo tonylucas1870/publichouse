@@ -1,6 +1,6 @@
 import { IconService } from '../../services/IconService.js';
 import { formatDate } from '../../utils/dateUtils.js';
-import { DateFilter } from './DateFilter.js';
+import { DateFilter } from '../changeover/DateFilter.js';
 import { LoadingSpinner } from '../ui/LoadingSpinner.js';
 import { ErrorDisplay } from '../ui/ErrorDisplay.js';
 import { CollapsibleSection } from '../ui/CollapsibleSection.js';
@@ -110,6 +110,24 @@ export class ChangeoverList {
       this.attachShareEventListeners();
     }
   }
+  getStatusBadgeClass(status) {
+    const classes = {
+      scheduled: 'bg-info',
+      in_progress: 'bg-warning',
+      complete: 'bg-success'
+    };
+    return classes[status] || 'bg-secondary';
+  }
+
+  getStatusText(status) {
+    const text = {
+      scheduled: 'Scheduled',
+      in_progress: 'In Progress',
+      complete: 'Complete'
+    };
+    return text[status] || status;
+  }
+
   attachShareEventListeners() {
     // Schedule changeover button
     const scheduleBtn = this.container.querySelector('#scheduleChangeoverBtn');
@@ -139,10 +157,13 @@ export class ChangeoverList {
   }
 
   renderChangeoversList() {
+    // Filter out completed changeovers
+    const activeChangeovers = this.changeovers.filter(c => c.status !== 'complete');
+
     return CollapsibleList.render({
-      items: this.changeovers,
+      items: activeChangeovers,
       renderItem: (changeover) => this.renderChangeoverItem(changeover),
-      emptyMessage: this.changeovers.length === 0 ? 
+      emptyMessage: activeChangeovers.length === 0 ? 
         'No changeovers scheduled yet.' : 
         'No changeovers found for the selected criteria.',
       showMoreText: 'Show More Changeovers'
@@ -152,7 +173,7 @@ export class ChangeoverList {
   renderChangeoverItem(changeover) {
     return `
       <div class="list-group-item mb-2">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="mb-1">${changeover.property.name}</h6>
             <p class="mb-1 text-muted">
@@ -160,6 +181,9 @@ export class ChangeoverList {
               Checkin: ${formatDate(changeover.checkin_date)} | 
               Checkout: ${formatDate(changeover.checkout_date)}
             </p>
+            ${changeover.status === 'in_progress' ? `
+              <span class="badge bg-warning">In Progress</span>
+            ` : ''}
           </div>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-secondary btn-sm share-changeover"
@@ -170,7 +194,7 @@ export class ChangeoverList {
             </button>
             <a href="/?changeover=${changeover.id}" 
                class="btn btn-outline-primary btn-sm">
-              View Findings
+              View
             </a>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { IconService } from '../../services/IconService.js';
 import { formatDate } from '../../utils/dateUtils.js';
 import { Navigation } from '../ui/Navigation.js';
+import { showErrorAlert } from '../../utils/alertUtils.js';
+import { authStore } from '../../auth/AuthStore.js';
 
 export class ChangeoverHeader {
   constructor(containerId, changeoverService, changeoverId) {
@@ -27,14 +29,43 @@ export class ChangeoverHeader {
     this.container.innerHTML = `
       <div class="mb-4">
         ${Navigation.renderBackButton()}
-        <h2 class="h4 my-3">${changeover.property.name}</h2>
-        <p class="text-muted d-flex align-items-center gap-2">
-          ${IconService.createIcon('Calendar')}
-          Check-in: ${formatDate(changeover.checkin_date)} | 
-          Check-out: ${formatDate(changeover.checkout_date)}
-        </p>
+        <div class="d-flex justify-content-between align-items-start mt-3">
+          <div>
+            <h2 class="h4 mb-2">${changeover.property.name}</h2>
+            <p class="text-muted d-flex align-items-center gap-2">
+              ${IconService.createIcon('Calendar')}
+              Check-in: ${formatDate(changeover.checkin_date)} | 
+              Check-out: ${formatDate(changeover.checkout_date)}
+            </p>
+          </div>
+          ${authStore.isAuthenticated() ? `
+            <div class="d-flex align-items-center gap-2">
+              <select class="form-select form-select-sm" id="changeoverStatus">
+                <option value="scheduled" ${changeover.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                <option value="in_progress" ${changeover.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                <option value="complete" ${changeover.status === 'complete' ? 'selected' : ''}>Complete</option>
+              </select>
+            </div>
+          ` : ''}
+        </div>
       </div>
     `;
+
+    // Attach status change handler
+    const statusSelect = this.container.querySelector('#changeoverStatus');
+    if (statusSelect) {
+      statusSelect.addEventListener('change', async () => {
+        try {
+          await this.changeoverService.updateStatus(this.changeoverId, statusSelect.value);
+          showErrorAlert('Status updated successfully', 'success');
+        } catch (error) {
+          console.error('Error updating status:', error);
+          showErrorAlert(error.message);
+          // Reset select to previous value
+          statusSelect.value = changeover.status;
+        }
+      });
+    }
   }
 
   showError() {

@@ -14,6 +14,7 @@ export class ChangeoverService {
           id,
           checkin_date,
           checkout_date,
+          status,
           property:properties (
             id,
             name
@@ -68,6 +69,7 @@ export class ChangeoverService {
           id,
           checkin_date,
           checkout_date,
+          status,
           property_id,
           property:properties (
             id,
@@ -110,6 +112,21 @@ export class ChangeoverService {
     }
   }
 
+  async updateStatus(changeoverId, status) {
+    try {
+      const { data, error } = await supabase
+        .rpc('update_changeover_status', {
+          changeover_id_input: changeoverId,
+          new_status: status
+        });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw handleSupabaseError(error, 'Failed to update changeover status');
+    }
+  }
+
   async createChangeover({ propertyId, checkinDate, checkoutDate }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -121,6 +138,7 @@ export class ChangeoverService {
           property_id: propertyId,
           checkin_date: checkinDate,
           checkout_date: checkoutDate,
+          status: 'scheduled',
           created_by: user.id
         })
         .select()
