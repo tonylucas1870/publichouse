@@ -53,7 +53,9 @@ export class ChangeoverModal {
           if (!value) return 'Please select a property';
           return null;
         },
-        checkinDate: (value) => {
+        checkinDate: (value, form) => {
+          if (!value) return 'Check-in date is required';
+          
           const checkinDate = new Date(value);
           const today = new Date();
           today.setHours(0, 0, 0, 0);
@@ -63,13 +65,8 @@ export class ChangeoverModal {
           }
           return null;
         },
-        checkoutDate: (value, form) => {
-          const checkoutDate = new Date(value);
-          const checkinDate = new Date(form.checkinDate.value);
-          
-          if (checkoutDate <= checkinDate) {
-            return 'Check-out date must be after check-in date';
-          }
+        checkoutDate: (value) => {
+          if (!value) return 'Check-out date is required';
           return null;
         }
       };
@@ -104,10 +101,11 @@ export class ChangeoverModal {
       const checkinInput = form.checkinDate;
       const checkoutInput = form.checkoutDate;
 
-      // Set min dates
+      // Set initial min dates
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       checkinInput.min = today.toISOString().split('T')[0];
+      checkoutInput.min = today.toISOString().split('T')[0];
 
       checkinInput.addEventListener('change', () => {
         // Set minimum checkout date to day after checkin
@@ -117,14 +115,24 @@ export class ChangeoverModal {
         checkoutInput.min = minCheckout.toISOString().split('T')[0];
         
         // Clear checkout if it's now invalid
-        if (new Date(checkoutInput.value) <= new Date(checkinInput.value)) {
+        if (checkoutInput.value && new Date(checkoutInput.value) <= checkinDate) {
           checkoutInput.value = '';
+          showErrorAlert('Check-out date must be after check-in date');
         }
 
         validateForm(form, validationRules);
       });
 
       checkoutInput.addEventListener('change', () => {
+        const checkinDate = new Date(checkinInput.value);
+        const checkoutDate = new Date(checkoutInput.value);
+        
+        if (checkoutDate <= checkinDate) {
+          checkoutInput.value = '';
+          showErrorAlert('Check-out date must be after check-in date');
+          return;
+        }
+
         validateForm(form, validationRules);
       });
     } catch (error) {

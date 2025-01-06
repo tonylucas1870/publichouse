@@ -45,7 +45,12 @@ export class ChangeoverList {
 
   render() {
     const content = {
-      headerContent: '',
+      headerContent: `
+        <button class="btn btn-primary btn-sm" id="scheduleChangeoverBtn">
+          ${IconService.createIcon('Plus')}
+          Schedule Changeover
+        </button>
+      `,
       body: this.renderChangeoversList()
     };
 
@@ -62,6 +67,16 @@ export class ChangeoverList {
   }
 
   attachShareEventListeners() {
+    // Schedule changeover button
+    const scheduleBtn = this.container.querySelector('#scheduleChangeoverBtn');
+    if (scheduleBtn) {
+      scheduleBtn.addEventListener('click', () => {
+        import('./ChangeoverModal.js').then(({ ChangeoverModal }) => {
+          ChangeoverModal.show(this.changeoverService);
+        });
+      });
+    }
+
     // Share button clicks
     this.container.querySelectorAll('.share-changeover').forEach(btn => {
       btn.addEventListener('click', (e) => {

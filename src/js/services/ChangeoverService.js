@@ -58,6 +58,7 @@ export class ChangeoverService {
         throw new Error('No changeover ID provided');
       }
 
+
       // Get current user (if authenticated)
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -89,6 +90,46 @@ export class ChangeoverService {
     } catch (error) {
       console.error('ChangeoverService error:', error);
       throw handleSupabaseError(error, error.message || 'Failed to load changeover');
+    }
+  }
+
+  async getProperties() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('properties')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      throw handleSupabaseError(error, 'Failed to load properties');
+    }
+  }
+
+  async createChangeover({ propertyId, checkinDate, checkoutDate }) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Authentication required');
+
+      const { data, error } = await supabase
+        .from('changeovers')
+        .insert({
+          property_id: propertyId,
+          checkin_date: checkinDate,
+          checkout_date: checkoutDate,
+          created_by: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw handleSupabaseError(error, 'Failed to create changeover');
     }
   }
 }
