@@ -8,6 +8,18 @@ export function formatDate(dateString) {
   });
 }
 
+export function formatDateTime(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 export function getCurrentDate() {
   return new Date().toISOString().split('T')[0];
 }

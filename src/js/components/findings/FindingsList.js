@@ -89,8 +89,11 @@ export class FindingsList {
         const findingId = item.dataset.findingId;
         const finding = this.findings.find(f => f.id === findingId);
         if (finding) {
+          // Pass findingsService instance to modal
           FindingModal.show(
             finding,
+            this.findingsService,
+            this.findingsService, // Pass findingsService instance
             async (findingId, status) => this.handleUpdateStatus(findingId, status),
             async (findingId, text) => this.handleAddNote(findingId, text)
           );

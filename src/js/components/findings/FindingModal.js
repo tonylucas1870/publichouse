@@ -4,9 +4,11 @@ import { StatusSelect } from '../ui/StatusSelect.js';
 import { formatDate } from '../../utils/dateUtils.js';
 import { FindingNotes } from './FindingNotes.js';
 import { authStore } from '../../auth/AuthStore.js';
+import { showErrorAlert } from '../../utils/alertUtils.js';
+import { formatDateTime } from '../../utils/dateUtils.js';
 
 export class FindingModal {
-  static show(finding, onUpdateStatus, onAddNote) {
+  static show(finding, findingsService, onUpdateStatus, onAddNote) {
     console.debug('FindingModal: Showing finding details', {
       id: finding.id,
       hasContentItem: finding.content_item !== null && finding.content_item !== undefined,
@@ -110,10 +112,24 @@ export class FindingModal {
     // Attach notes event listeners
     const notesContainer = modal.querySelector('.finding-notes');
     if (notesContainer) {
-      FindingNotes.attachEventListeners(notesContainer, async (text) => {
-        await onAddNote(finding.id, text);
-        closeModal();
-      });
+      const handleAddNote = async (text) => {
+        try {
+          await onAddNote(finding.id, text);
+          // Refresh finding data
+          const updatedFinding = await findingsService.getFinding(finding.id);
+          if (updatedFinding) {
+            // Re-render notes section
+            const updatedNotesHtml = FindingNotes.render(updatedFinding.notes || []);
+            notesContainer.innerHTML = updatedNotesHtml;
+            // Reattach event listeners with same handler
+            FindingNotes.attachEventListeners(notesContainer, handleAddNote);
+          }
+        } catch (error) {
+          console.error('Error handling note:', error);
+          showErrorAlert('Failed to add note. Please try again.');
+        }
+      };
+      FindingNotes.attachEventListeners(notesContainer, handleAddNote);
     }
 
     // Attach status change listener if editable

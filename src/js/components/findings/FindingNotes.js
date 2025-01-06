@@ -1,6 +1,7 @@
 import { IconService } from '../../services/IconService.js';
-import { formatDate } from '../../utils/dateUtils.js';
+import { formatDateTime } from '../../utils/dateUtils.js';
 import { authStore } from '../../auth/AuthStore.js';
+import { showErrorAlert } from '../../utils/alertUtils.js';
 
 export class FindingNotes {
   static render(notes = []) {
@@ -21,7 +22,7 @@ export class FindingNotes {
                   ${note.user_email}
                   <span class="ms-2 d-flex align-items-center gap-1">
                     ${IconService.createIcon('Clock', { width: '14', height: '14' })}
-                    ${formatDate(note.created_at)}
+                    ${formatDateTime(note.created_at)}
                   </span>
                 </small>
               </div>
@@ -49,14 +50,33 @@ export class FindingNotes {
   static attachEventListeners(container, onAddNote) {
     const form = container.querySelector('.add-note-form');
     if (form) {
+      const submitButton = form.querySelector('button[type="submit"]');
+      
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Disable submit button while processing
+        if (submitButton) {
+          submitButton.disabled = true;
+        }
+        
         const input = form.querySelector('input');
         const text = input.value.trim();
         
         if (text) {
-          await onAddNote(text);
-          input.value = '';
+          try {
+            await onAddNote(text);
+            // Only clear input on success
+            input.value = '';
+          } catch (error) {
+            console.error('Error adding note:', error);
+            showErrorAlert('Failed to add note. Please try again.');
+          }
+        }
+        
+        // Re-enable submit button
+        if (submitButton) {
+          submitButton.disabled = false;
         }
       });
     }

@@ -10,7 +10,17 @@ export class ChangeoverList {
 
   render() {
     const content = {
-      headerContent: '<div id="dateFilterContainer"></div>',
+      headerContent: `
+        <div class="d-flex justify-content-between align-items-center">
+          <div id="dateFilterContainer"></div>
+          <div>
+            <button class="btn btn-primary btn-sm" id="scheduleChangeoverBtn">
+              ${IconService.createIcon('Plus')}
+              Schedule Changeover
+            </button>
+          </div>
+        </div>
+      `,
       body: this.renderChangeoversList()
     };
 
@@ -21,15 +31,15 @@ export class ChangeoverList {
       isCollapsed: CollapsibleSection.getStoredState('changeovers')
     });
 
-    // Initialize date filter if we have changeovers
-    if (this.changeovers.length > 0) {
-      this.dateFilter = new DateFilter('dateFilterContainer', (filter) => {
-        this.applyDateFilter(filter);
-      });
-    }
-
     CollapsibleSection.attachEventListeners(this.container);
     this.attachEventListeners();
+    
+    // Always initialize date filter
+    this.dateFilter = new DateFilter('dateFilterContainer', (filter) => {
+      this.applyDateFilter(filter);
+    });
+    
+    this.attachShareEventListeners();
   }
 
   // ... rest of the class implementation ...
