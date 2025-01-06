@@ -5,6 +5,7 @@ export class RoomSelect {
   constructor(containerId, propertyId) {
     this.container = document.getElementById(containerId);
     this.propertyId = propertyId;
+    this.isChangeoverId = propertyId.includes('-'); // Check if it's a UUID
     this.roomService = new RoomService();
     this.rooms = [];
     this.initialize();
@@ -12,7 +13,11 @@ export class RoomSelect {
 
   async initialize() {
     try {
-      this.rooms = await this.roomService.getRooms(this.propertyId);
+      this.rooms = await this.roomService.getRooms(this.propertyId, this.isChangeoverId);
+      console.debug('RoomSelect: Initialized with rooms', {
+        count: this.rooms.length,
+        rooms: this.rooms.map(r => r.name)
+      });
       this.render();
       this.attachEventListeners();
     } catch (error) {
@@ -22,6 +27,13 @@ export class RoomSelect {
   }
 
   render() {
+    if (this.container.querySelector('#location')) {
+      // If input exists, just update datalist
+      const datalist = this.container.querySelector('#roomSuggestions');
+      datalist.innerHTML = this.rooms.map(room => `<option value="${room.name}">`).join('');
+      return;
+    }
+
     this.container.innerHTML = `
       <div class="mb-3">
         <label for="location" class="form-label d-flex align-items-center gap-2">
@@ -53,25 +65,55 @@ export class RoomSelect {
   attachEventListeners() {
     const input = this.container.querySelector('#location');
     
-    input.addEventListener('change', async (e) => {
+    const handleRoomChange = async (e) => {
       const value = e.target.value.trim();
-      if (value && !this.rooms.find(room => room.name === value)) {
-        try {
-          const newRoom = await this.roomService.addRoom(this.propertyId, value);
-          if (newRoom) {
-            this.rooms.push(newRoom);
+      if (!value) return;
+
+      console.debug('RoomSelect: Input blur event', { value });
+      
+      try {
+        let room;
+        const existingRoom = this.rooms.find(room => 
+          room.name.toLowerCase() === value.toLowerCase()
+        );
+        
+        if (existingRoom) {
+          console.debug('RoomSelect: Using existing room', existingRoom);
+          room = existingRoom;
+        } else {
+          console.debug('RoomSelect: Creating new room', { value });
+          room = await this.roomService.addRoom(this.propertyId, value);
+          if (room) {
+            console.debug('RoomSelect: Room created successfully', room);
+            this.rooms.push(room);
             this.rooms.sort((a, b) => a.name.localeCompare(b.name));
-            this.render();
-            this.attachEventListeners();
-            
-            // Restore the input value after re-render
-            this.container.querySelector('#location').value = value;
+            // Just update datalist
+            const datalist = this.container.querySelector('#roomSuggestions');
+            datalist.innerHTML = this.rooms.map(r => `<option value="${r.name}">`).join('');
           }
-        } catch (error) {
-          console.error('Error adding room:', error);
         }
+
+        // Normalize case
+        input.value = room.name;
+
+        // Emit room change event
+        const event = new CustomEvent('roomchange', { 
+          detail: { room } 
+        });
+        this.container.dispatchEvent(event);
+
+      } catch (error) {
+        console.error('RoomSelect: Error handling room:', error);
+        input.value = ''; // Clear invalid input
+        input.focus();
+        throw error; // Let the form handle the error
       }
-    });
+    };
+
+    // Remove any existing listeners
+    input.removeEventListener('change', handleRoomChange);
+    // Add new listener
+    input.addEventListener('change', handleRoomChange);
   }
 
   showError() {
@@ -99,5 +141,9 @@ export class RoomSelect {
 
   getValue() {
     return this.container.querySelector('#location').value.trim();
+  }
+  
+  async getRooms() {
+    return this.rooms;
   }
 }

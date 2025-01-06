@@ -67,23 +67,61 @@ export class RoomService {
     try {
       console.debug('RoomService: Adding room', { propertyId, name });
 
-      const { data, error } = await supabase
+      if (!name || !name.trim()) {
+        throw new Error('Room name is required');
+      }
+
+      // Get property ID from changeover if needed
+      let actualPropertyId = propertyId;
+      if (propertyId.includes('-')) { // Likely a UUID, so probably a changeover ID
+        console.debug('RoomService: Getting property ID from changeover');
+        const { data: changeover, error: changeoverError } = await supabase
+          .from('changeovers')
+          .select('property_id')
+          .eq('id', propertyId)
+          .single();
+
+        if (changeoverError) throw changeoverError;
+        if (!changeover?.property_id) throw new Error('Property not found');
+        
+        actualPropertyId = changeover.property_id;
+        console.debug('RoomService: Got property ID', { actualPropertyId });
+      }
+
+      // First check if room already exists
+      const { data: existingRooms, error: checkError } = await supabase
         .from('rooms')
-        .insert({ property_id: propertyId, name })
+        .select('id, name')
+        .eq('property_id', actualPropertyId)
+        .ilike('name', name.trim());
+
+      if (checkError) {
+        console.error('RoomService: Error checking existing room', checkError);
+        throw handleSupabaseError(checkError);
+      }
+
+      if (existingRooms?.length > 0) {
+        console.debug('RoomService: Room already exists', existingRooms[0]);
+        return existingRooms[0];
+      }
+
+      // Create new room
+      const { data: newRoom, error: createError } = await supabase
+        .from('rooms')
+        .insert({ 
+          property_id: actualPropertyId, 
+          name: name.trim() 
+        })
         .select()
         .single();
 
-      if (error) {
-        if (error.code === '23505') {
-          console.debug('RoomService: Room already exists', { name });
-          return; // Room already exists
-        }
-        console.error('RoomService: Error adding room', error);
-        throw handleSupabaseError(error);
+      if (createError) {
+        console.error('RoomService: Error creating room', createError);
+        throw handleSupabaseError(createError);
       }
 
-      console.debug('RoomService: Room added successfully', data);
-      return data;
+      console.debug('RoomService: Room created successfully', newRoom);
+      return newRoom;
     } catch (error) {
       console.error('RoomService: Error in addRoom', error);
       throw handleSupabaseError(error, 'Failed to add room');

@@ -11,15 +11,11 @@ export class UploadForm {
     if (!this.container) {
       throw new Error('Upload form container not found');
     }
-
-    if (!this.container) {
-      throw new Error('Upload form container not found');
-    }
-
     this.findingsService = findingsService;
     this.findingsList = findingsList;
     this.changeoverId = changeoverId;
     this.selectedImages = [];
+    this.roomSelect = null;
     
     this.render();
     this.attachEventListeners();
@@ -28,28 +24,8 @@ export class UploadForm {
   render() {
     this.container.innerHTML = `
       <form id="findingForm" class="needs-validation" novalidate>
-        <div id="locationContainer">
-        <div class="mb-3">
-          <label for="location" class="form-label d-flex align-items-center gap-2">
-            ${IconService.createIcon('MapPin')}
-            Location
-          </label>
-          <input
-            type="text"
-            id="location"
-            class="form-control"
-            list="roomSuggestions"
-            placeholder="Select or type a room name..."
-            required
-            autocomplete="off"
-          />
-          <datalist id="roomSuggestions"></datalist>
-          <div class="invalid-feedback">
-            Please specify where the item was found
-          </div>
-        </div>
+        <div id="locationContainer"></div>
         <div id="contentsContainer"></div>
-        </div>
 
         <div class="mb-3">
           <label for="description" class="form-label d-flex align-items-center gap-2">
@@ -103,56 +79,34 @@ export class UploadForm {
     const form = this.container.querySelector('#findingForm');
     const imageInput = this.container.querySelector('#imageInput');
     const addImagesBtn = this.container.querySelector('#addImagesBtn');
-    const locationInput = this.container.querySelector('#location');
-    const contentsContainer = this.container.querySelector('#contentsContainer');
-    const roomSuggestions = this.container.querySelector('#roomSuggestions');
-    const roomService = new RoomService();
     this.contentsSelect = null;
 
-    // Load room suggestions
-    console.debug('UploadForm: Loading room suggestions');
-    roomService.getRooms(this.changeoverId, true).then(rooms => {
-      console.debug('UploadForm: Got rooms', { 
-        count: rooms?.length,
-        rooms: rooms?.map(r => r.name)
-      });
-      roomSuggestions.innerHTML = rooms
-        .map(room => `<option value="${room.name}">`)
-        .join('');
-      console.debug('UploadForm: Updated datalist options', {
-        optionsCount: roomSuggestions.children.length,
-        html: roomSuggestions.innerHTML
-      });
-    }).catch(error => {
-      console.error('Error loading rooms:', error);
-    });
+    // Initialize RoomSelect
+    this.roomSelect = new RoomSelect('locationContainer', this.changeoverId);
 
     // Handle location changes to load contents
-    locationInput.addEventListener('change', async (e) => {
-      const location = e.target.value.trim();
-      if (!location) {
-        contentsContainer.innerHTML = '';
+    const locationContainer = this.container.querySelector('#locationContainer');
+    const contentsContainer = this.container.querySelector('#contentsContainer');
+    
+    locationContainer?.addEventListener('roomchange', async (e) => {
+      const room = e.detail.room;
+      if (!room) {
+        if (contentsContainer) {
+          contentsContainer.innerHTML = '';
+        }
         this.contentsSelect = null;
         return;
       }
-
-      // Get room ID for the selected location
+      
       try {
-        const rooms = await roomService.getRooms(this.changeoverId, true);
-        const room = rooms.find(r => r.name === location);
-        
-        if (room) {
-          // Initialize contents select
-          import('../ui/ContentsSelect.js').then(({ ContentsSelect }) => {
-            this.contentsSelect = new ContentsSelect('contentsContainer', room.id);
-          });
-        } else {
-          contentsContainer.innerHTML = '';
-          this.contentsSelect = null;
-        }
+        // Initialize contents select
+        const { ContentsSelect } = await import('../ui/ContentsSelect.js');
+        this.contentsSelect = new ContentsSelect('contentsContainer', room.id);
       } catch (error) {
         console.error('Error loading room contents:', error);
-        contentsContainer.innerHTML = '';
+        if (contentsContainer) {
+          contentsContainer.innerHTML = '';
+        }
         this.contentsSelect = null;
       }
     });
@@ -195,7 +149,7 @@ export class UploadForm {
         const contentItem = this.contentsSelect?.getValue();
         console.debug('UploadForm: Submitting finding', {
           description: form.description.value.trim(),
-          location: locationInput.value.trim(),
+          location: this.roomSelect.getValue(),
           hasContentItem: !!contentItem,
           contentItem,
           imageCount: this.selectedImages.length
@@ -203,7 +157,7 @@ export class UploadForm {
 
         await this.findingsService.add({
           description: form.description.value.trim(),
-          location: locationInput.value.trim(),
+          location: this.roomSelect.getValue(),
           contentItem,
           images: this.selectedImages.map(img => img.file),
           changeoverId: this.changeoverId
@@ -214,7 +168,7 @@ export class UploadForm {
         this.selectedImages = [];
         this.updateImagePreviews();
         form.classList.remove('was-validated');
-        contentsContainer.innerHTML = '';
+        this.container.querySelector('#contentsContainer').innerHTML = '';
         this.contentsSelect = null;
         
         // Refresh findings list
