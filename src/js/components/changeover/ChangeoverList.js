@@ -1,5 +1,6 @@
 import { IconService } from '../../services/IconService.js';
 import { formatDate } from '../../utils/dateUtils.js';
+import { DateFilter } from './DateFilter.js';
 import { LoadingSpinner } from '../ui/LoadingSpinner.js';
 import { ErrorDisplay } from '../ui/ErrorDisplay.js';
 import { CollapsibleSection } from '../ui/CollapsibleSection.js';
@@ -46,10 +47,15 @@ export class ChangeoverList {
   render() {
     const content = {
       headerContent: `
-        <button class="btn btn-primary btn-sm" id="scheduleChangeoverBtn">
-          ${IconService.createIcon('Plus')}
-          Schedule Changeover
-        </button>
+        <div class="d-flex justify-content-between align-items-center">
+          <div id="dateFilterContainer"></div>
+          <div>
+            <button class="btn btn-primary btn-sm" id="scheduleChangeoverBtn">
+              ${IconService.createIcon('Plus')}
+              Schedule Changeover
+            </button>
+          </div>
+        </div>
       `,
       body: this.renderChangeoversList()
     };
@@ -63,9 +69,47 @@ export class ChangeoverList {
 
     CollapsibleSection.attachEventListeners(this.container);
     CollapsibleList.attachEventListeners(this.container);
+    
+    // Initialize date filter if we have changeovers
+    if (this.changeovers.length > 0) {
+      this.dateFilter = new DateFilter('dateFilterContainer', (filter) => {
+        this.applyDateFilter(filter);
+      });
+    }
+    
     this.attachShareEventListeners();
   }
 
+  applyDateFilter(filter) {
+    let filteredChangeovers = [...this.changeovers];
+    
+    if (filter.startDate || filter.endDate) {
+      filteredChangeovers = filteredChangeovers.filter(changeover => {
+        const checkoutDate = new Date(changeover.checkout_date);
+        
+        if (filter.startDate && new Date(filter.startDate) > checkoutDate) {
+          return false;
+        }
+        
+        if (filter.endDate && new Date(filter.endDate) < checkoutDate) {
+          return false;
+        }
+        
+        return true;
+      });
+    }
+    
+    // Update the list content
+    const listContent = this.container.querySelector('.list-content');
+    if (listContent) {
+      listContent.innerHTML = filteredChangeovers.map(changeover => 
+        this.renderChangeoverItem(changeover)
+      ).join('');
+      
+      // Reattach event listeners
+      this.attachShareEventListeners();
+    }
+  }
   attachShareEventListeners() {
     // Schedule changeover button
     const scheduleBtn = this.container.querySelector('#scheduleChangeoverBtn');

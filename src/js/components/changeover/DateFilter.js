@@ -1,5 +1,5 @@
 import { IconService } from '../../services/IconService.js';
-import { formatDateInput } from '../../utils/dateUtils.js';
+import { formatDate } from '../../utils/dateUtils.js';
 
 export class DateFilter {
   constructor(containerId, onFilterChange) {
@@ -16,7 +16,7 @@ export class DateFilter {
 
   render() {
     this.container.innerHTML = `
-      <div class="dropdown mb-3">
+      <div class="dropdown pe-2">
         <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" 
                 type="button" 
                 id="dateFilterBtn">
@@ -53,14 +53,14 @@ export class DateFilter {
     }
     
     if (this.currentFilter.startDate && this.currentFilter.endDate) {
-      return `${formatDateInput(this.currentFilter.startDate)} - ${formatDateInput(this.currentFilter.endDate)}`;
+      return `${formatDate(this.currentFilter.startDate)} - ${formatDate(this.currentFilter.endDate)}`;
     }
     
     if (this.currentFilter.startDate) {
-      return `From ${formatDateInput(this.currentFilter.startDate)}`;
+      return `From ${formatDate(this.currentFilter.startDate)}`;
     }
     
-    return `Until ${formatDateInput(this.currentFilter.endDate)}`;
+    return `Until ${formatDate(this.currentFilter.endDate)}`;
   }
 
   attachEventListeners() {
