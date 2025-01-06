@@ -61,12 +61,14 @@ export class FindingModal {
             ${finding.content_item ? `
               <div class="mb-3">
                 <label class="form-label d-flex align-items-center gap-2">
+                  ${IconService.createIcon('Package')}
                   Item
                 </label>
                 <div class="form-control-plaintext">
                   <a href="#" class="text-decoration-none d-inline-flex align-items-center gap-2 view-content-item" 
                      data-item='${JSON.stringify(finding.content_item)}'>
                     ${finding.content_item.name}
+                    ${IconService.createIcon('ExternalLink', { width: '14', height: '14' })}
                   </a>
                 </div>
               </div>
@@ -156,10 +158,21 @@ export class FindingModal {
     if (contentItemLink) {
       contentItemLink.addEventListener('click', (e) => {
         e.preventDefault();
-        const itemData = JSON.parse(contentItemLink.dataset.item);
+        const itemData = JSON.parse(contentItemLink.dataset.item || '{}');
+        // Ensure images array exists
+        if (!Array.isArray(itemData.images)) {
+          itemData.images = [];
+        }
         console.debug('FindingModal: Opening content item modal', itemData);
-        import('../room/ContentItemFindings.js').then(({ ContentItemFindings }) => {
-          ContentItemFindings.show(itemData, findingsService);
+        console.debug('FindingModal: Content item data', {
+          name: itemData.name,
+          description: itemData.description,
+          hasImages: Array.isArray(itemData.images),
+          imageCount: Array.isArray(itemData.images) ? itemData.images.length : 0,
+          images: itemData.images
+        });
+        import('../room/ContentsModal.js').then(({ ContentsModal }) => {
+          ContentsModal.show(itemData, findingsService);
         });
       });
     }

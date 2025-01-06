@@ -5,15 +5,34 @@ import { FindingModal } from '../findings/FindingModal.js';
 
 export class ContentsModal {
   static async show(item, findingsService) {
+    // Ensure images array exists
+    if (!Array.isArray(item.images)) {
+      item.images = [];
+    }
     const { modal, closeModal } = this.createModal(item);
     document.body.appendChild(modal);
     document.body.classList.add('modal-open');
-    console.debug('ContentsModal: Modal created', { item });
+    console.debug('ContentsModal: Modal created', {
+      name: item.name,
+      description: item.description,
+      hasImages: Array.isArray(item.images),
+      imageCount: item.images?.length,
+      hasFindingsService: !!findingsService
+    });
 
     // Load findings if we have a findings service
     if (findingsService) {
       try {
         const findings = await findingsService.getFindingsByContentItem(item.name || '');
+        console.debug('ContentsModal: Loaded findings', {
+          findingsCount: findings.length,
+          findings: findings.map(f => ({
+            id: f.id,
+            description: f.description,
+            hasImages: !!f.images,
+            imageCount: f.images?.length
+          }))
+        });
         const findingsContainer = modal.querySelector('#findingsContainer');
         if (findingsContainer && findings.length > 0) {
           findingsContainer.innerHTML = `

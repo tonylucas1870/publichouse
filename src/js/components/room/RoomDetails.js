@@ -136,8 +136,8 @@ export class RoomDetails {
       this.container.querySelectorAll('.contents-item').forEach(item => {
         item.addEventListener('click', () => {
           const itemData = JSON.parse(item.dataset.item);
-          import('./ContentItemFindings.js').then(({ ContentItemFindings }) => {
-            ContentItemFindings.show(itemData, this.findingsService);
+          import('./ContentsModal.js').then(({ ContentsModal }) => {
+            ContentsModal.show(itemData, this.findingsService);
           });
         });
       });

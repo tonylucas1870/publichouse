@@ -95,6 +95,7 @@ export class FindingsService {
 
   async getFindingsByContentItem(contentItemName) {
     try {
+      console.debug('FindingsService: Getting findings by content item', { contentItemName });
       const { data, error } = await supabase
         .from('findings')
         .select(`
@@ -118,6 +119,16 @@ export class FindingsService {
         .order('date_found', { ascending: false });
 
       if (error) throw error;
+      console.debug('FindingsService: Got findings', {
+        count: data?.length,
+        findings: data?.map(f => ({
+          id: f.id,
+          description: f.description,
+          hasImages: !!f.images,
+          imageCount: f.images?.length,
+          contentItem: f.content_item
+        }))
+      });
       return data || [];
     } catch (error) {
       console.error('FindingsService: Error getting findings by content item', error);
