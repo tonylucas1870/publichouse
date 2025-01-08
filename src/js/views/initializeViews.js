@@ -4,6 +4,7 @@ import { initializeHomeView } from './homeView.js';
 import { initializePropertyView } from './propertyView.js';
 import { initializeChangeoverView } from './changeoverView.js';
 import { initializeSharedView } from './sharedView.js';
+import { initializeSubscriptionView } from './subscriptionView.js';
 import { authStore } from '../auth/AuthStore.js';
 import { showErrorAlert } from '../utils/alertUtils.js';
 
@@ -26,6 +27,7 @@ export async function initializeViews(services) {
     const changeoverId = params.get('changeover');
     const shareToken = params.get('token');
     const propertyId = params.get('property');
+    const subscription = params.get('subscription');
 
     // Handle unauthenticated state
     if (!authStore.isAuthenticated() && !shareToken) {
@@ -46,6 +48,8 @@ export async function initializeViews(services) {
         await initializeChangeoverView(services, elements, changeoverId);
       } else if (propertyId) {
         await initializePropertyView(services, elements, propertyId);
+      } else if (subscription === 'manage') {
+        await initializeSubscriptionView(services, elements);
       } else {
         await initializeHomeView(services, elements);
       }

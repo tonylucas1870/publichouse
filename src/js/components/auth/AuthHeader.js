@@ -51,6 +51,10 @@ export class AuthHeader {
         <button class="btn btn-outline-danger" id="signOutBtn">
           Sign Out
         </button>
+        <button class="btn btn-outline-primary" id="subscriptionBtn">
+          ${IconService.createIcon('CreditCard')}
+          Subscription
+        </button>
       `;
       
       const signOutBtn = this.authButtons.querySelector('#signOutBtn');
@@ -61,6 +65,11 @@ export class AuthHeader {
           } catch (error) {
             showErrorAlert(error.message);
           }
+        });
+
+        const subscriptionBtn = this.authButtons.querySelector('#subscriptionBtn');
+        subscriptionBtn.addEventListener('click', () => {
+          window.location.href = '/?subscription=manage';
         });
       }
     } else {
