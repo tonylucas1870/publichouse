@@ -4,7 +4,7 @@ import Stripe from 'https://esm.sh/stripe@14.12.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS, HEAD',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
@@ -34,7 +34,7 @@ serve(async (req) => {
     }
 
     const body = await req.text();
-    const event = stripe.webhooks.constructEvent(
+    const event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       endpointSecret
@@ -44,20 +44,27 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
         const { user_id, tier_id } = session.metadata;
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+        
+        // Get subscription details
+        const subscription = await stripe.subscriptions.retrieve(
+          session.subscription as string,
+          { expand: ['items.data.price.product'] }
+        );
 
-        // Create or update subscription
-        const { error } = await supabase
-          .from('subscriptions')
-          .upsert({
-            user_id,
-            tier_id,
-            stripe_customer_id: session.customer,
-            stripe_subscription_id: session.subscription,
-            status: 'active',
-            current_period_start: new Date(subscription.current_period_start * 1000),
-            current_period_end: new Date(subscription.current_period_end * 1000),
-          });
+        // Handle subscription update
+        const { data: sub, error } = await supabase.rpc(
+          'handle_subscription_update',
+          {
+            p_user_id: user_id,
+            p_tier_id: tier_id,
+            p_stripe_customer_id: session.customer,
+            p_stripe_subscription_id: session.subscription,
+            p_status: subscription.status,
+            p_period_start: new Date(subscription.current_period_start * 1000),
+            p_period_end: new Date(subscription.current_period_end * 1000),
+            p_cancel_at_period_end: subscription.cancel_at_period_end
+          }
+        );
 
         if (error) throw error;
         break;
