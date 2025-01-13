@@ -49,7 +49,7 @@ export class PropertyList {
       headerContent: `
         <button class="btn btn-primary btn-sm" id="addPropertyBtn">
           ${IconService.createIcon('Plus')}
-          Add Property
+          Add
         </button>
       `,
       body: this.renderPropertiesList()

@@ -93,8 +93,8 @@ export class PendingFindingsList {
   renderFindingItem(finding) {
     // Handle both string and object image formats
     const thumbnailImage = finding.images?.[0]?.url || finding.images?.[0];
-    const hasMultipleImages = finding.images?.length > 1;
-    const contentItem = finding.content_item;
+    const hasMultipleImages = Array.isArray(finding.images) && finding.images.length > 1;
+    const contentItem = finding.content_item || null;
 
     return `
       <div class="list-group-item finding-item mb-2" data-finding-id="${finding.id}" style="cursor: pointer">
@@ -103,8 +103,8 @@ export class PendingFindingsList {
             <h6 class="mb-1">${finding.description}</h6>
         
             <p class="mb-1 text-muted small">
-              ${IconService.createIcon('MapPin', { width: '14', height: '14' })}
-              ${contentItem.name} in ${finding.location} at ${finding.changeover?.property?.name || 'Unknown Property'}
+              ${IconService.createIcon('MapPin', { width: '14', height: '14' })} 
+              ${contentItem ? `${contentItem.name} in ` : ''}${finding.location} at ${finding.changeover?.property?.name || 'Unknown Property'}
             </p>
             <small class="text-muted d-flex align-items-center gap-1">
               ${IconService.createIcon('Clock', { width: '14', height: '14' })}

@@ -1,5 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import './style.css';
+import './index.css'; // Import after Bootstrap to ensure our styles take precedence
 import { App } from './js/app.js';
 
 // Initialize the application

@@ -52,7 +52,7 @@ export class ChangeoverList {
           <div>
             <button class="btn btn-primary btn-sm" id="scheduleChangeoverBtn">
               ${IconService.createIcon('Plus')}
-              Schedule Changeover
+              Add
             </button>
           </div>
         </div>
@@ -61,7 +61,7 @@ export class ChangeoverList {
     };
 
     this.container.innerHTML = CollapsibleSection.render({
-      title: 'Scheduled Changeovers',
+      title: 'Changeovers',
       icon: 'Calendar',
       content,
       isCollapsed: CollapsibleSection.getStoredState('changeovers')
@@ -178,8 +178,8 @@ export class ChangeoverList {
             <h6 class="mb-1">${changeover.property.name}</h6>
             <p class="mb-1 text-muted">
               ${IconService.createIcon('Calendar')}
-              Checkin: ${formatDate(changeover.checkin_date)} | 
-              Checkout: ${formatDate(changeover.checkout_date)}
+              In: ${formatDate(changeover.checkin_date)} | 
+              Out: ${formatDate(changeover.checkout_date)}
             </p>
             ${changeover.status === 'in_progress' ? `
               <span class="badge bg-warning">In Progress</span>

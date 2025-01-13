@@ -49,7 +49,7 @@ export class DateFilter {
 
   getFilterButtonText() {
     if (!this.currentFilter.startDate && !this.currentFilter.endDate) {
-      return 'Filter by Date';
+      return 'Filter';
     }
     
     if (this.currentFilter.startDate && this.currentFilter.endDate) {
