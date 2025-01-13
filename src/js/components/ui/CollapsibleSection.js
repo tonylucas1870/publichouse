@@ -15,7 +15,8 @@ export class CollapsibleSection {
             ${this.renderHeaderContent(content.headerContent)}
             <button class="btn btn-link btn-sm p-0 text-muted toggle-section" 
                     data-section="${id}"
-                    aria-expanded="${!isCollapsed}">
+                    aria-expanded="${!isCollapsed}"
+                    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
               ${IconService.createIcon(isCollapsed ? 'ChevronDown' : 'ChevronUp')}
             </button>
           </div>

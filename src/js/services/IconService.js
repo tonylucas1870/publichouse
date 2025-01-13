@@ -14,6 +14,8 @@ export class IconService {
       Edit: 'fa-pen',
       Filter: 'fa-filter',
       Home: 'fa-home',
+      ChevronUp: 'fa-chevron-up',
+      ChevronDown: 'fa-chevron-down',
       Lock: 'fa-lock',
       Mail: 'fa-envelope',
       MapPin: 'fa-map-marker-alt',
@@ -49,7 +51,7 @@ export class IconService {
     };
 
     const iconClass = iconMap[name] || 'fa-question';
-    const size = options.width ? `fa-${options.width}x` : '';
+    const size = options.width ? `fa-${Math.ceil(options.width / 16)}x` : '';
     const classes = options.class ? ` ${options.class}` : '';
 
     return `<i class="fas ${iconClass} ${size}${classes}"></i>`;

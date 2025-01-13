@@ -1,4 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 import './index.css'; // Import after Bootstrap to ensure our styles take precedence
 import { App } from './js/app.js';
 
