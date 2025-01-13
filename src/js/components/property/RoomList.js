@@ -85,13 +85,14 @@ export class RoomList {
       <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center room-item"
            data-room-id="${room.id}"
            data-room-name="${room.name}"
-           style="cursor: ${isAdmin ? 'pointer' : 'default'}">
+           style="cursor: pointer">
         <span>${room.name}</span>
         ${isAdmin ? `
-        <button class="btn btn-outline-danger btn-sm delete-room" 
+        <button class="btn btn-outline-danger btn-sm delete-room d-flex align-items-center gap-1" 
                 data-room-id="${room.id}"
                 data-room-name="${room.name}">
           ${IconService.createIcon('Trash2')}
+          Delete
         </button>
         ` : ''}
       </div>
@@ -111,7 +112,14 @@ export class RoomList {
         // Don't open modal if clicking delete button
         if (e.target.closest('.delete-room')) return;
         
-        const { roomId, roomName } = e.currentTarget.dataset;
+        const roomId = roomElement.dataset.roomId;
+        const roomName = roomElement.dataset.roomName;
+        
+        if (!roomId || !roomName) {
+          console.error('Missing room data:', { roomId, roomName });
+          return;
+        }
+
         const isAdmin = this.container.dataset.isAdmin === 'true';
         RoomModal.show(roomId, roomName, isAdmin);
       });
