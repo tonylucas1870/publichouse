@@ -40,7 +40,7 @@ export class AuthHeader {
     brand.className = 'navbar-brand d-flex align-items-center gap-2';
     brand.innerHTML = `
       ${IconService.createIcon('Camera')}
-      <span class="h3 mb-0">CleanFind</span>
+      <span class="h3 mb-0">Accompere</span>
     `;
     return brand;
   }
