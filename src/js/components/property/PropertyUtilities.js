@@ -1,5 +1,6 @@
 import { IconService } from '../../services/IconService.js';
 import { UtilityService } from '../../services/UtilityService.js';
+import { UtilityModal } from './UtilityModal.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 
 export class PropertyUtilities {
@@ -98,7 +99,7 @@ export class PropertyUtilities {
     return `
       <div class="list-group-item">
         <div class="d-flex justify-content-between align-items-start">
-          <div>
+          <div class="utility-item" data-utility-id="${utility.id}" style="cursor: pointer; flex: 1">
             <h6 class="mb-1">${utility.type}</h6>
             <p class="mb-1">Provider: ${utility.provider}</p>
             ${utility.accountNumber ? `
@@ -109,9 +110,10 @@ export class PropertyUtilities {
             ` : ''}
           </div>
           ${isAdmin ? `
-            <button class="btn btn-outline-danger btn-sm delete-utility" 
+            <button class="btn btn-outline-danger btn-sm delete-utility d-flex align-items-center gap-1" 
                     data-utility-id="${utility.id}">
               ${IconService.createIcon('Trash2')}
+              Delete
             </button>
           ` : ''}
         </div>
@@ -122,32 +124,36 @@ export class PropertyUtilities {
   attachEventListeners() {
     const isAdmin = this.container.dataset.isAdmin === 'true';
     
+    // Utility item clicks
+    this.container.querySelectorAll('.utility-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const utilityId = item.dataset.utilityId;
+        const utility = this.utilities.find(u => u.id === utilityId);
+        if (utility) {
+          UtilityModal.show(utility, this.utilityService);
+        }
+      });
+    });
+
     // Add Utility button
     const addUtilityBtn = this.container.querySelector('#addUtilityBtn');
     if (addUtilityBtn && isAdmin) {
-      addUtilityBtn.addEventListener('click', () => this.showAddUtilityModal());
+      addUtilityBtn.addEventListener('click', () => {
+        UtilityModal.show(null, this.utilityService);
+      });
     }
 
     // Delete Utility buttons
     if (isAdmin) {
       this.container.querySelectorAll('.delete-utility').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const utilityId = e.target.closest('.delete-utility').dataset.utilityId;
+          e.preventDefault();
+          e.stopPropagation();
+          const utilityId = btn.dataset.utilityId;
           this.handleDeleteUtility(utilityId);
         });
       });
     }
-
-    // Modal form submission
-    const form = this.container.querySelector('#addUtilityForm');
-    if (form) {
-      form.addEventListener('submit', (e) => this.handleAddUtility(e));
-    }
-
-    // Modal close buttons
-    this.container.querySelectorAll('[data-dismiss="modal"]').forEach(btn => {
-      btn.addEventListener('click', () => this.hideAddUtilityModal());
-    });
   }
 
   showAddUtilityModal() {

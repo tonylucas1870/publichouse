@@ -12,6 +12,23 @@ export class UtilityService {
     return data || [];
   }
 
+  async updateUtility(utilityId, { type, provider, account_number, notes }) {
+    const { data, error } = await supabase
+      .from('utilities')
+      .update({
+        type,
+        provider,
+        account_number,
+        notes
+      })
+      .eq('id', utilityId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   async addUtility({ type, provider, accountNumber, notes, propertyId }) {
     const { data, error } = await supabase
       .from('utilities')

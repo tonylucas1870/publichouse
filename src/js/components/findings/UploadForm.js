@@ -24,9 +24,6 @@ export class UploadForm {
   render() {
     this.container.innerHTML = `
       <form id="findingForm" class="needs-validation" novalidate>
-        <div id="locationContainer"></div>
-        <div id="contentsContainer"></div>
-
         <div class="mb-3">
           <label for="description" class="form-label d-flex align-items-center gap-2">
             ${IconService.createIcon('Type')}
@@ -44,10 +41,13 @@ export class UploadForm {
           </div>
         </div>
 
+        <div id="locationContainer"></div>
+        <div id="contentsContainer"></div>
+
         <div class="mb-4">
           <label class="form-label d-flex align-items-center gap-2">
             ${IconService.createIcon('Camera')}
-            Images
+            Images (Optional)
           </label>
           <div class="row g-3 mb-2" id="imagePreviewsContainer">
             <!-- Image previews will be added here -->
@@ -60,12 +60,9 @@ export class UploadForm {
             multiple
           />
           <button type="button" class="btn btn-outline-primary w-100" id="addImagesBtn">
-            ${IconService.createIcon('Plus')}
-            Add Images
+            ${IconService.createIcon('Upload')}
+            Upload Images
           </button>
-          <div id="imageError" class="invalid-feedback" style="display: none;">
-            Please add at least one image
-          </div>
         </div>
 
         <button type="submit" class="btn btn-primary w-100">
@@ -80,6 +77,9 @@ export class UploadForm {
     const imageInput = this.container.querySelector('#imageInput');
     const addImagesBtn = this.container.querySelector('#addImagesBtn');
     this.contentsSelect = null;
+
+    // Initialize RoomSelect
+    this.roomSelect = new RoomSelect('locationContainer', this.changeoverId);
 
     // Initialize RoomSelect
     this.roomSelect = new RoomSelect('locationContainer', this.changeoverId);
@@ -137,11 +137,8 @@ export class UploadForm {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      if (!form.checkValidity() || this.selectedImages.length === 0) {
+      if (!form.checkValidity()) {
         form.classList.add('was-validated');
-        if (this.selectedImages.length === 0) {
-          document.getElementById('imageError').style.display = 'block';
-        }
         return;
       }
 
@@ -159,7 +156,7 @@ export class UploadForm {
           description: form.description.value.trim(),
           location: this.roomSelect.getValue(),
           content_item: contentItem, // Match the database column name
-          images: this.selectedImages.map(img => img.file),
+          images: this.selectedImages.length > 0 ? this.selectedImages.map(img => img.file) : [],
           changeoverId: this.changeoverId
         });
 

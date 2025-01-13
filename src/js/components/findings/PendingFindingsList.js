@@ -91,9 +91,9 @@ export class PendingFindingsList {
   }
 
   renderFindingItem(finding) {
-    // Handle both string and object image formats
-    const thumbnailImage = finding.images?.[0]?.url || finding.images?.[0];
-    const hasMultipleImages = Array.isArray(finding.images) && finding.images.length > 1;
+    const hasImages = Array.isArray(finding.images) && finding.images.length > 0;
+    const thumbnailImage = hasImages ? (finding.images[0]?.url || finding.images[0]) : null;
+    const hasMultipleImages = hasImages && finding.images.length > 1;
     const contentItem = finding.content_item || null;
 
     return `
@@ -112,18 +112,25 @@ export class PendingFindingsList {
             </small>
           </div>
           <div class="position-relative">
-            <img 
-              src="${thumbnailImage}" 
-              alt="Finding thumbnail" 
-              class="rounded" 
-              style="width: 60px; height: 60px; object-fit: cover"
-            >
-            ${hasMultipleImages ? `
-              <span class="position-absolute top-0 end-0 badge bg-dark bg-opacity-75" 
-                    style="transform: translate(25%, -25%)">
-                +${finding.images.length - 1}
-              </span>
-            ` : ''}
+            ${hasImages ? `
+              <img 
+                src="${thumbnailImage}" 
+                alt="Finding thumbnail" 
+                class="rounded" 
+                style="width: 60px; height: 60px; object-fit: cover"
+              >
+              ${hasMultipleImages ? `
+                <span class="position-absolute top-0 end-0 badge bg-dark bg-opacity-75" 
+                      style="transform: translate(25%, -25%)">
+                  +${finding.images.length - 1}
+                </span>
+              ` : ''}
+            ` : `
+              <div class="rounded bg-light d-flex align-items-center justify-content-center" 
+                   style="width: 60px; height: 60px">
+                ${IconService.createIcon('Image', { width: '24', height: '24', class: 'text-muted opacity-25' })}
+              </div>
+            `}
           </div>
         </div>
       </div>
