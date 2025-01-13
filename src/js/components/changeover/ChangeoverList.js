@@ -141,17 +141,19 @@ export class ChangeoverList {
 
     // Share button clicks
     this.container.querySelectorAll('.share-changeover').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault(); 
         const shareToken = btn.dataset.shareToken;
         const shareUrl = `${window.location.origin}/?token=${shareToken}`;
         
         // Copy to clipboard
-        navigator.clipboard.writeText(shareUrl).then(() => {
+        try {
+          await navigator.clipboard.writeText(shareUrl);
           showErrorAlert('Share link copied to clipboard', 'success');
-        }).catch(() => {
+        } catch (error) {
           showErrorAlert('Failed to copy share link');
-        });
+        }
       });
     });
   }
@@ -173,7 +175,8 @@ export class ChangeoverList {
   renderChangeoverItem(changeover) {
     return `
       <div class="list-group-item mb-2">
-        <div class="d-flex justify-content-between align-items-start">
+        <a href="/?changeover=${changeover.id}" 
+           class="d-flex justify-content-between align-items-start text-decoration-none text-dark">
           <div>
             <h6 class="mb-1">${changeover.property.name}</h6>
             <p class="mb-1 text-muted">
@@ -186,18 +189,15 @@ export class ChangeoverList {
             ` : ''}
           </div>
           <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary btn-sm share-changeover"
+            <button class="btn btn-outline-secondary btn-sm share-changeover" 
                     data-share-token="${changeover.share_token}"
-                    title="Share changeover">
+                    title="Share changeover"
+                    onclick="event.stopPropagation(); event.preventDefault();">
               ${IconService.createIcon('Share2')}
               Share
             </button>
-            <a href="/?changeover=${changeover.id}" 
-               class="btn btn-outline-primary btn-sm">
-              View
-            </a>
           </div>
-        </div>
+        </a>
       </div>
     `;
   }

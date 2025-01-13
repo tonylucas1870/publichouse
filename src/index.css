@@ -95,6 +95,16 @@
   margin-bottom: 0.25rem;
 }
 
+/* Make changeover items clickable */
+.list-group-item a {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.list-group-item a:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
 /* Small button variations */
 .btn-sm {
   --btn-padding-x: 0.5rem;
