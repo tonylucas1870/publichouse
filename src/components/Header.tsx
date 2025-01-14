@@ -8,7 +8,7 @@ export default function Header() {
         <div className="container">
           <span className="navbar-brand d-flex align-items-center gap-2">
             <Camera className="text-primary" size={32} />
-            <span className="h3 mb-0">Accompere</span>
+            <span className="h3 mb-0">Accomperes</span>
           </span>
         </div>
       </nav>
