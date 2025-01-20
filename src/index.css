@@ -170,3 +170,15 @@
 .thumbnail-nav.active .fas.fa-play {
   opacity: 1;
 }
+
+/* Video thumbnail styles */
+.thumbnail-nav .fas.fa-play {
+  color: #6c757d;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.thumbnail-nav:hover .fas.fa-play,
+.thumbnail-nav.active .fas.fa-play {
+  opacity: 1;
+}

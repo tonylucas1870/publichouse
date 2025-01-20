@@ -1,6 +1,7 @@
 import { IconService } from '../../services/IconService.js';
 import { RoomDetailsService } from '../../services/RoomDetailsService.js';
 import { FindingsService } from '../../services/FindingsService.js';
+import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 import { ContentsForm } from './ContentsForm.js';
 import { WallForm } from './WallForm.js';
 import { LightingForm } from './LightingForm.js';
@@ -166,11 +167,12 @@ export class RoomDetails {
         ${this.details.contents.map(item => `
           <div class="col contents-item" data-item='${JSON.stringify(item)}'>
             <div class="card h-100">
-              ${item.images?.[0] ? `
-                <img src="${item.images[0]}" 
-                     class="card-img-top" 
-                     alt="${item.name}"
-                     style="height: 200px; object-fit: cover">
+              ${item.images?.length > 0 ? `
+                ${renderMediaThumbnail({ 
+                  url: item.images[0], 
+                  size: 'large', 
+                  showPlayIcon: isVideo(item.images[0])
+                })}
                 ${item.images.length > 1 ? `
                   <div class="position-absolute top-0 end-0 m-2">
                     <span class="badge bg-dark bg-opacity-75">
@@ -182,7 +184,7 @@ export class RoomDetails {
               <div class="card-body">
                 <h6 class="card-title">${item.name}</h6>
                 ${item.description ? `
-                  <p class="card-text small text-muted">${item.description}</p>
+                  <p class="card-text small text-muted mb-0">${item.description}</p>
                 ` : ''}
               </div>
             </div>

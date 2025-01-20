@@ -2,6 +2,7 @@ import { IconService } from '../../services/IconService.js';
 import { formatDate } from '../../utils/dateUtils.js';
 import { StatusBadge } from '../ui/StatusBadge.js';
 import { FindingModal } from '../findings/FindingModal.js';
+import { isVideo } from '../../utils/mediaUtils.js';
 
 export class ContentsModal {
   static async show(item, findingsService) {
@@ -9,6 +10,21 @@ export class ContentsModal {
     if (!Array.isArray(item.images)) {
       item.images = [];
     }
+    
+    // Debug: Log item images
+    console.debug('ContentsModal: Item images', {
+      images: item.images,
+      imageTypes: item.images.map(img => {
+        const url = typeof img === 'string' ? img : img.url;
+        return {
+          url,
+          isVideo: isVideo(url),
+          urlType: typeof url,
+          fullImage: img
+        };
+      })
+    });
+
     const { modal, closeModal } = this.createModal(item);
     document.body.appendChild(modal);
     document.body.classList.add('modal-open');
@@ -199,22 +215,44 @@ export class ContentsModal {
   static renderImageCarousel(images) {
     if (!Array.isArray(images) || !images.length) return '';
 
-    const isVideo = (url) => {
-      if (!url) return false;
-      const urlStr = typeof url === 'string' ? url : url.url;
-      return urlStr.toLowerCase().includes('.mp4') || urlStr.toLowerCase().includes('.webm');
-    };
     const hasMultipleImages = images.length > 1;
+    const normalizedImages = images.map(img => {
+      const imgObj = typeof img === 'string' ? { url: img } : img;
+      const videoDetected = isVideo(imgObj.url);
+      
+      // Debug: Log image normalization
+      console.debug('ContentsModal: Normalizing image', {
+        original: img,
+        normalized: imgObj,
+        url: imgObj.url,
+        isVideo: videoDetected,
+        urlLower: imgObj.url?.toLowerCase(),
+        includesMp4: imgObj.url?.toLowerCase().includes('.mp4'),
+        includesWebm: imgObj.url?.toLowerCase().includes('.webm')
+      });
+      
+      imgObj.isVideo = videoDetected;
+      return imgObj;
+    });
+
+    // Debug: Log all normalized images
+    console.debug('ContentsModal: All normalized images', {
+      count: normalizedImages.length,
+      images: normalizedImages.map(img => ({
+        url: img.url,
+        isVideo: img.isVideo
+      }))
+    });
 
     return `
       <div class="image-section">
         <div id="contentsImages" class="carousel slide mb-3" data-bs-ride="false">
           <div class="carousel-inner">
-            ${images.map((image, index) => `
+            ${normalizedImages.map((image, index) => `
               <div class="carousel-item ${index === 0 ? 'active' : ''}">
-                ${isVideo(image) ? `
+                ${image.isVideo ? `
                 <video
-                  src="${image}"
+                  src="${image.url}"
                   class="d-block w-100 rounded"
                   style="max-height: 400px; object-fit: contain; background: #f8f9fa"
                   controls
@@ -224,18 +262,17 @@ export class ContentsModal {
                 </video>
                 ` : `
                 <img
-                  src="${image || ''}"
+                  src="${image.url || image}"
                   alt="Item image ${index + 1}"
                   class="d-block w-100 rounded"
                   style="max-height: 400px; object-fit: contain; background: #f8f9fa"
-                />
-                `}
+                />`}
               </div>
             `).join('')}
           </div>
           ${hasMultipleImages ? this.renderCarouselControls(images.length) : ''}
         </div>
-        ${hasMultipleImages ? this.renderThumbnails(images) : ''}
+        ${hasMultipleImages ? this.renderThumbnails(normalizedImages) : ''}
       </div>
     `;
   }
@@ -267,27 +304,33 @@ export class ContentsModal {
   static renderThumbnails(images) {
     return `
       <div class="row g-2">
-        ${images.map((image, index) => `
+        ${images.map((image, index) => {
+          // Debug: Log thumbnail rendering
+          console.debug('ContentsModal: Rendering thumbnail', {
+            index,
+            url: image.url,
+            isVideo: image.isVideo
+          });
+          
+          return `
           <div class="col-3">
-            ${isVideo(image) ? `
-            <div
-              class="img-thumbnail thumbnail-nav${index === 0 ? ' active' : ''}"
-              data-index="${index}"
-              style="height: 60px; width: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer"
-            >
+            ${image.isVideo ? `
+            <div class="img-thumbnail thumbnail-nav${index === 0 ? ' active' : ''}"
+                 data-index="${index}"
+                 style="height: 60px; width: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer">
               <i class="fas fa-play"></i>
             </div>
             ` : `
             <img
-              src="${image}"
+              src="${image.url}"
               alt="Thumbnail ${index + 1}"
               class="img-thumbnail thumbnail-nav${index === 0 ? ' active' : ''}"
               data-index="${index}"
               style="height: 60px; width: 100%; object-fit: cover; cursor: pointer"
-            />
-            `}
+            />`}
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     `;
   }

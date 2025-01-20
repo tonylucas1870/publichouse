@@ -6,15 +6,10 @@ import { FindingNotes } from './FindingNotes.js';
 import { authStore } from '../../auth/AuthStore.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { uploadFile } from '../../utils/storageUtils.js';
+import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 import { formatDateTime } from '../../utils/dateUtils.js';
 
 export class FindingModal {
-  static isVideo(url) {
-    if (!url) return false;
-    const urlStr = typeof url === 'string' ? url : url.url;
-    return urlStr.toLowerCase().includes('.mp4') || urlStr.toLowerCase().includes('.webm');
-  }
-
   static show(finding, findingsService, onUpdateStatus, onAddNote) {
     console.debug('FindingModal: Showing finding details', {
       id: finding.id,
@@ -236,7 +231,7 @@ export class FindingModal {
           <div class="carousel-inner">
             ${normalizedImages.map((image, index) => `
               <div class="carousel-item ${index === 0 ? 'active' : ''}">
-                ${this.isVideo(image.url || image) ? `
+                ${isVideo(image.url || image) ? `
                 <video
                   src="${image.url || image}"
                   class="d-block w-100 rounded"
@@ -300,7 +295,7 @@ export class FindingModal {
       <div class="row g-2">
         ${normalizedImages.map((image, index) => `
           <div class="col-3">
-            ${this.isVideo(image.url || image) ? `
+            ${isVideo(image.url || image) ? `
             <div
               class="img-thumbnail thumbnail-nav${index === 0 ? ' active' : ''}"
               data-index="${index}"
