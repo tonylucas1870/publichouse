@@ -84,8 +84,8 @@ export class ChangeoverService {
       if (error) throw error;
       if (!data) throw new Error('Changeover not found');
 
-      // Check access - only allow if user owns the property
-      if (!user || user.id !== data.property?.created_by) {
+      // Check access - allow if shared or if user owns the property
+      if (!data.share_token && (!user || user.id !== data.property?.created_by)) {
         throw new Error('Access denied');
       }
 
