@@ -24,9 +24,9 @@ export class PropertyModal {
               <div class="mb-3">
                 <label for="propertyAddress" class="form-label d-flex align-items-center gap-2">
                   ${IconService.createIcon('MapPin')}
-                  Address
+                  Address (Optional)
                 </label>
-                <textarea class="form-control" id="propertyAddress" rows="2" required></textarea>
+                <textarea class="form-control" id="propertyAddress" rows="2"></textarea>
               </div>
               <div class="d-flex justify-content-end gap-2">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
@@ -60,7 +60,7 @@ export class PropertyModal {
       e.preventDefault();
       const formData = {
         name: form.propertyName.value.trim(),
-        address: form.propertyAddress.value.trim()
+        address: form.propertyAddress.value.trim() || null
       };
 
       try {

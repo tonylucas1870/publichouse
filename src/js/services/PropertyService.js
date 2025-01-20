@@ -14,7 +14,11 @@ export class PropertyService {
 
       if (error) throw error;
 
-      return data || [];
+      // Transform null addresses to empty strings
+      return (data || []).map(property => ({
+        ...property,
+        address: property.address || ''
+      }));
     } catch (error) {
       throw handleSupabaseError(error, 'Failed to load properties');
     }
@@ -23,15 +27,14 @@ export class PropertyService {
   async createProperty(formData) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Please sign in to create properties');
-      }
+      if (!user) throw new Error('Please sign in to create properties');
+      if (!formData.name?.trim()) throw new Error('Property name is required');
 
       const { data, error } = await supabase
         .from('properties')
         .insert({
           name: formData.name.trim(),
-          address: formData.address.trim(),
+          address: formData.address || null,
           created_by: user.id
         })
         .select()
@@ -40,7 +43,7 @@ export class PropertyService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('PropertyService error:', error);
+      console.error('PropertyService error:', error.message || error);
       throw handleSupabaseError(error, 'Failed to create property');
     }
   }
@@ -61,6 +64,9 @@ export class PropertyService {
 
       if (propertyError) throw propertyError;
       if (!property) throw new Error('Property not found');
+
+      // Transform null address to empty string
+      property.address = property.address || '';
 
       return { data: property, isAdmin: true }; // Owner always has admin rights
     } catch (error) {
