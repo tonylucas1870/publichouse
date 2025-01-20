@@ -24,7 +24,7 @@ export class FindingModal {
       content: `
         <div class="row g-4">
           <!-- Image Column -->
-          <div class="col-12 col-lg-6">
+          <div class="col-12 col-6">
             ${this.renderImageCarousel(images)}
             ${isEditable ? `
               <div class="mt-3">
@@ -38,7 +38,7 @@ export class FindingModal {
           </div>
           
           <!-- Details Column -->
-          <div class="col-12 col-lg-6">
+          <div class="col-12 col-6">
             <div class="mb-3">
               <label class="form-label">Status</label>
               ${StatusSelect.render(finding.status, isEditable)}
