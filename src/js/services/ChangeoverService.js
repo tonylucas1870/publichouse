@@ -112,7 +112,13 @@ export class ChangeoverService {
           share_token,
           property:properties (
             id,
-            name
+            name,
+            address,
+            created_by,
+            calendar_url,
+            calendar_sync_status,
+            calendar_last_synced,
+            calendar_sync_error
           )
         `)
         .eq('share_token', token)
