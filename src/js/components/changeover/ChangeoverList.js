@@ -190,7 +190,7 @@ export class ChangeoverList {
           </div>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-secondary btn-sm share-changeover" 
-                    data-share-token="${changeover.share_token}"
+                    data-share-token="${changeover.share_token || ''}"
                     title="Share changeover"
                     onclick="event.stopPropagation(); event.preventDefault();">
               ${IconService.createIcon('Share2')}

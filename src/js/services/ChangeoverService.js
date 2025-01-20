@@ -15,6 +15,7 @@ export class ChangeoverService {
           checkin_date,
           checkout_date,
           status,
+          share_token,
           property:properties (
             id,
             name
@@ -70,6 +71,7 @@ export class ChangeoverService {
           checkin_date,
           checkout_date,
           status,
+          share_token,
           property_id,
           property:properties (
             id,
