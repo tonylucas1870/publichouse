@@ -1,6 +1,7 @@
 import { IconService } from '../../services/IconService.js';
 import { ContentsImageUpload } from './ContentsImageUpload.js';
 import { ContentsImageService } from '../../services/ContentsImageService.js';
+import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { validateMedia } from '../../utils/imageUtils.js';
 
@@ -17,12 +18,13 @@ export class ContentsForm {
               ${hasImages ? `
                 <div class="row g-2">
                   ${images.map((imageUrl, index) => `
-                    <div class="col-6">
+                    <div class="col-6" style="height: 100px">
                       <div class="position-relative">
-                        <img src="${imageUrl}" 
-                             alt="Item image ${index + 1}" 
-                             class="img-fluid rounded"
-                             style="height: 100px; width: 100%; object-fit: cover">
+                        ${renderMediaThumbnail({ 
+                          url: imageUrl, 
+                          size: 'medium', 
+                          showPlayIcon: isVideo(imageUrl)
+                        })}
                         <button type="button" 
                                 class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-image"
                                 data-index="${index}">
@@ -109,6 +111,12 @@ export class ContentsForm {
           // Get current images
           const currentImages = Array.from(container.querySelectorAll('.contents-images img')).map(img => img.src);
           
+          // Debug log current images
+          console.debug('ContentsForm: Current images before update', {
+            count: currentImages.length,
+            images: currentImages
+          });
+          
           // Add new image
           currentImages.push(imageUrl);
           
@@ -117,12 +125,13 @@ export class ContentsForm {
           imagesContainer.innerHTML = `
             <div class="row g-2">
               ${currentImages.map((url, index) => `
-                <div class="col-6">
+                <div class="col-6" style="height: 100px">
                   <div class="position-relative">
-                    <img src="${url}" 
-                         alt="Item image ${index + 1}" 
-                         class="img-fluid rounded"
-                         style="height: 100px; width: 100%; object-fit: cover">
+                    ${renderMediaThumbnail({ 
+                      url, 
+                      size: 'medium', 
+                      showPlayIcon: isVideo(url)
+                    })}
                     <button type="button" 
                             class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-image"
                             data-index="${index}">
@@ -180,12 +189,13 @@ export class ContentsForm {
           ${currentImages.length > 0 ? `
             <div class="row g-2">
               ${currentImages.map((url, idx) => `
-                <div class="col-6">
+                <div class="col-6" style="height: 100px">
                   <div class="position-relative">
-                    <img src="${url}" 
-                         alt="Item image ${idx + 1}" 
-                         class="img-fluid rounded"
-                         style="height: 100px; width: 100%; object-fit: cover">
+                    ${renderMediaThumbnail({ 
+                      url, 
+                      size: 'medium', 
+                      showPlayIcon: isVideo(url)
+                    })}
                     <button type="button" 
                             class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-image"
                             data-index="${idx}">
@@ -228,12 +238,13 @@ export class ContentsForm {
         imagesContainer.innerHTML = `
           <div class="row g-2">
             ${currentImages.map((url, index) => `
-              <div class="col-6">
+              <div class="col-6" style="height: 100px">
                 <div class="position-relative">
-                  <img src="${url}" 
-                       alt="Item image ${index + 1}" 
-                       class="img-fluid rounded"
-                       style="height: 100px; width: 100%; object-fit: cover">
+                  ${renderMediaThumbnail({ 
+                    url, 
+                    size: 'medium', 
+                    showPlayIcon: isVideo(url)
+                  })}
                   <button type="button" 
                           class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-image"
                           data-index="${index}">
