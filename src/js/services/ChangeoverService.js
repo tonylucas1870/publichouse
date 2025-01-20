@@ -104,8 +104,8 @@ export class ChangeoverService {
         throw new Error('No share token provided');
       }
 
-      // Build query
-      const query = supabase
+      // Execute query
+      const { data, error } = await supabase
         .from('changeovers')
         .select(`
           id,
@@ -119,19 +119,15 @@ export class ChangeoverService {
             created_by
           )
         `)
-        .eq('share_token', token);
-
-      console.debug('ChangeoverService: Query built', {
-        query: query.toSQL(), // Log the SQL query
-      });
-
-      // Execute query
-      const { data, error } = await query.single();
+        .eq('share_token', token)
+        .single();
 
       console.debug('ChangeoverService: Query result', {
         error,
         data: data ? {
           id: data.id,
+          checkin_date: data.checkin_date,
+          checkout_date: data.checkout_date,
           status: data.status,
           hasProperty: !!data.property,
           propertyDetails: data.property ? {
@@ -148,7 +144,9 @@ export class ChangeoverService {
       console.debug('ChangeoverService: Returning changeover data', {
         id: data.id,
         status: data.status,
-        propertyName: data.property?.name
+        propertyName: data.property?.name,
+        hasProperty: !!data.property,
+        propertyId: data.property?.id
       });
 
       return data;
