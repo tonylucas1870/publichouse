@@ -1,53 +1,65 @@
 import { IconService } from '../../services/IconService.js';
+import { validateMedia } from '../../utils/imageUtils.js';
+import { showErrorAlert } from '../../utils/alertUtils.js';
+import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 
 export class ContentsImageUpload {
-  static render(imageUrl = null) {
+  static render(mediaUrl = null) {
     return `
       <div class="contents-image-upload upload-area p-3 text-center mb-2">
-        ${imageUrl ? `
-          <img src="${imageUrl}" 
-               alt="Item" 
-               class="img-fluid rounded mb-2" 
-               style="max-height: 150px">
-          <div class="d-flex justify-content-center">
-            <button type="button" class="btn btn-sm btn-outline-danger remove-image">
-              ${IconService.createIcon('Trash2')}
-              Remove Image
-            </button>
-          </div>
-        ` : `
+        ${mediaUrl ? this.renderPreview(mediaUrl) : `
           <div class="py-3">
             ${IconService.createIcon('Upload', { 
               class: 'text-muted mb-2',
               width: '24',
               height: '24'
             })}
-            <p class="text-muted small mb-0">Click to add photo</p>
+            <p class="text-muted small mb-0">Click to add photo/video</p>
           </div>
         `}
+        ${mediaUrl ? `
+          <div class="d-flex justify-content-center">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-media">
+              ${IconService.createIcon('Trash2')}
+              Remove Media
+            </button>
+          </div>
+        ` : ''}
       </div>
       <input type="file" 
-             class="d-none contents-image-input" 
-             accept="image/*">
+             class="d-none contents-media-input" 
+             accept="image/*,video/*">
     `;
   }
 
-  static attachEventListeners(container, onImageChange) {
-    const uploadArea = container.querySelector('.contents-image-upload');
-    const imageInput = container.querySelector('.contents-image-input');
-    const removeBtn = container.querySelector('.remove-image');
+  static renderPreview(url) {
+    return renderMediaThumbnail({ url, size: 'large', showPlayIcon: true });
+  }
 
-    if (uploadArea && imageInput) {
+  static attachEventListeners(container, onMediaChange) {
+    const uploadArea = container.querySelector('.contents-image-upload');
+    const mediaInput = container.querySelector('.contents-media-input');
+    const removeBtn = container.querySelector('.remove-media');
+
+    if (uploadArea && mediaInput) {
       uploadArea.addEventListener('click', (e) => {
-        if (!e.target.closest('.remove-image')) {
-          imageInput.click();
+        if (!e.target.closest('.remove-media')) {
+          mediaInput.click();
         }
       });
 
-      imageInput.addEventListener('change', (e) => {
+      mediaInput.addEventListener('change', (e) => {
         const file = e.target.files?.[0];
         if (file) {
-          onImageChange(file);
+          // Validate file
+          const error = validateMedia(file);
+          if (error) {
+            showErrorAlert(error);
+            mediaInput.value = '';
+            return;
+          }
+
+          onMediaChange(file);
         }
       });
     }
@@ -55,7 +67,7 @@ export class ContentsImageUpload {
     if (removeBtn) {
       removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        onImageChange(null);
+        onMediaChange(null);
       });
     }
   }

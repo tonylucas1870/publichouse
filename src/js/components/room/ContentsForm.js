@@ -2,6 +2,7 @@ import { IconService } from '../../services/IconService.js';
 import { ContentsImageUpload } from './ContentsImageUpload.js';
 import { ContentsImageService } from '../../services/ContentsImageService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
+import { validateMedia } from '../../utils/imageUtils.js';
 
 export class ContentsForm {
   static render(item = {}) {
@@ -212,7 +213,11 @@ export class ContentsForm {
   static async handleImageChange(container, file, onUpdate) {
     try {
       const error = validateMedia(file);
-      const isVideo = file.type.startsWith('video/');
+      if (error) {
+        showErrorAlert(error);
+        return;
+      }
+
       const imageUrl = file ? await ContentsImageService.uploadImage(file) : null;
       if (imageUrl) {
         const currentImages = Array.from(container.querySelectorAll('.contents-images img')).map(img => img.src);

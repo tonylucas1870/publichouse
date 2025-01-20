@@ -5,6 +5,7 @@ import { LoadingSpinner } from '../ui/LoadingSpinner.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { CollapsibleSection } from '../ui/CollapsibleSection.js';
 import { CollapsibleList } from '../ui/CollapsibleList.js';
+import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 import { authStore } from '../../auth/AuthStore.js';
 
 export class PendingFindingsList {
@@ -93,7 +94,6 @@ export class PendingFindingsList {
   renderFindingItem(finding) {
     const hasImages = Array.isArray(finding.images) && finding.images.length > 0;
     const mainImage = hasImages ? (finding.images[0]?.url || finding.images[0]) : null;
-    const isVideo = mainImage && (mainImage.toLowerCase().includes('.mp4') || mainImage.toLowerCase().includes('.webm'));
     const hasMultipleImages = hasImages && finding.images.length > 1;
     const contentItem = finding.content_item || null;
 
@@ -113,18 +113,8 @@ export class PendingFindingsList {
             </small>
           </div>
           <div class="position-relative">
-            ${hasImages ? isVideo ? `
-              <div class="rounded bg-light d-flex align-items-center justify-content-center" 
-                   style="width: 60px; height: 60px">
-                <i class="fas fa-play-circle text-muted"></i>
-              </div>
-            ` : `
-              <img 
-                src="${mainImage || ''}" 
-                alt="Finding thumbnail" 
-                class="rounded" 
-                style="width: 60px; height: 60px; object-fit: cover"
-              >
+            ${hasImages ? `
+              ${renderMediaThumbnail({ url: mainImage, size: 'small' })}
               ${hasMultipleImages ? `
                 <span class="position-absolute top-0 end-0 badge bg-dark bg-opacity-75" 
                       style="transform: translate(25%, -25%)">
