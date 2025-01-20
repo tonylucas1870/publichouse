@@ -31,7 +31,7 @@ export class ChangeoverHeader {
         ${Navigation.renderBackButton()}
         <div class="d-flex justify-content-between align-items-start mt-3">
           <div>
-            <h2 class="h4 mb-2">${changeover.property?.name || 'Loading...'}</h2>
+            <h2 class="h4 mb-2">${changeover.property.name}</h2>
             <p class="text-muted d-flex align-items-center gap-2">
               ${IconService.createIcon('Calendar')}
               Check-in: ${formatDate(changeover.checkin_date)} | 
