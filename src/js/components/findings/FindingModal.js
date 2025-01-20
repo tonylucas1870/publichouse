@@ -30,7 +30,7 @@ export class FindingModal {
       content: `
         <div class="row g-4">
           <!-- Image Column -->
-          <div class="col-12 col-lg-6">
+          <div class="col-12">
             ${this.renderImageCarousel(images)}
             ${isEditable ? `
               <div class="mt-3">
