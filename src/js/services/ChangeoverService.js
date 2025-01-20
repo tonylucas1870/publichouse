@@ -110,9 +110,10 @@ export class ChangeoverService {
           checkout_date,
           status,
           share_token,
-          property:properties (
+          property:properties!inner (
             id,
-            name
+            name,
+            created_by
           )
         `)
         .eq('share_token', token)
