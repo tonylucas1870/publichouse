@@ -92,7 +92,8 @@ export class PendingFindingsList {
 
   renderFindingItem(finding) {
     const hasImages = Array.isArray(finding.images) && finding.images.length > 0;
-    const thumbnailImage = hasImages ? (finding.images[0]?.url || finding.images[0]) : null;
+    const mainImage = hasImages ? (finding.images[0]?.url || finding.images[0]) : null;
+    const isVideo = mainImage && (mainImage.toLowerCase().includes('.mp4') || mainImage.toLowerCase().includes('.webm'));
     const hasMultipleImages = hasImages && finding.images.length > 1;
     const contentItem = finding.content_item || null;
 
@@ -112,9 +113,14 @@ export class PendingFindingsList {
             </small>
           </div>
           <div class="position-relative">
-            ${hasImages ? `
+            ${hasImages ? isVideo ? `
+              <div class="rounded bg-light d-flex align-items-center justify-content-center" 
+                   style="width: 60px; height: 60px">
+                <i class="fas fa-play-circle text-muted"></i>
+              </div>
+            ` : `
               <img 
-                src="${thumbnailImage}" 
+                src="${mainImage || ''}" 
                 alt="Finding thumbnail" 
                 class="rounded" 
                 style="width: 60px; height: 60px; object-fit: cover"

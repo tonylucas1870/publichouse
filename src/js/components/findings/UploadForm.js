@@ -3,7 +3,7 @@ import { ImageUpload } from '../ui/ImageUpload.js';
 import { RoomSelect } from '../ui/RoomSelect.js';
 import { RoomService } from '../../services/RoomService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
-import { validateImage } from '../../utils/imageUtils.js';
+import { validateMedia } from '../../utils/imageUtils.js';
 
 export class UploadForm {
   constructor(containerId, findingsService, findingsList, changeoverId) {
@@ -55,13 +55,13 @@ export class UploadForm {
           <input
             type="file"
             id="imageInput"
-            accept="image/*"
+            accept="image/*,video/*"
             class="d-none"
             multiple
           />
           <button type="button" class="btn btn-outline-primary w-100" id="addImagesBtn">
             ${IconService.createIcon('Upload')}
-            Upload Images
+            Upload Images/Videos
           </button>
         </div>
 
@@ -116,7 +116,8 @@ export class UploadForm {
     imageInput.addEventListener('change', (e) => {
       const files = Array.from(e.target.files || []);
       files.forEach(file => {
-        const error = validateImage(file);
+        const error = validateMedia(file);
+        const isVideo = file.type.startsWith('video/');
         if (error) {
           showErrorAlert(error);
           return;
@@ -126,6 +127,7 @@ export class UploadForm {
         reader.onload = (e) => {
           this.selectedImages.push({
             file,
+            isVideo,
             previewUrl: e.target.result
           });
           this.updateImagePreviews();
@@ -184,15 +186,21 @@ export class UploadForm {
     container.innerHTML = this.selectedImages.map((img, index) => `
       <div class="col-4 col-md-3">
         <div class="position-relative">
+          ${img.isVideo ? `
+          <div class="position-relative" style="height: 120px; background: #f8f9fa; display: flex; align-items: center; justify-content: center">
+            <i class="fas fa-play fa-2x text-muted"></i>
+          </div>
+          ` : `
           <img 
             src="${img.previewUrl}" 
-            class="img-fluid rounded" 
             alt="Preview"
-            style="width: 100%; height: 120px; object-fit: cover"
+            class="img-fluid rounded"
+            style="height: 100px; width: 100%; object-fit: cover"
           />
+          `}
           <button 
             type="button" 
-            class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 remove-image"
+            class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-image"
             data-index="${index}">
             ${IconService.createIcon('Trash2')}
           </button>

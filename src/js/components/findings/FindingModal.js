@@ -9,6 +9,12 @@ import { uploadFile } from '../../utils/storageUtils.js';
 import { formatDateTime } from '../../utils/dateUtils.js';
 
 export class FindingModal {
+  static isVideo(url) {
+    if (!url) return false;
+    const urlStr = typeof url === 'string' ? url : url.url;
+    return urlStr.toLowerCase().includes('.mp4') || urlStr.toLowerCase().includes('.webm');
+  }
+
   static show(finding, findingsService, onUpdateStatus, onAddNote) {
     console.debug('FindingModal: Showing finding details', {
       id: finding.id,
@@ -24,21 +30,21 @@ export class FindingModal {
       content: `
         <div class="row g-4">
           <!-- Image Column -->
-          <div class="col-12 col-6">
+          <div class="col-12">
             ${this.renderImageCarousel(images)}
             ${isEditable ? `
               <div class="mt-3">
-                <input type="file" id="additionalImage" accept="image/*" class="d-none" multiple>
+                <input type="file" id="additionalMedia" accept="image/*,video/*" class="d-none" multiple>
                 <button class="btn btn-outline-primary btn-sm w-100" id="addPhotosBtn">
                   ${IconService.createIcon('Upload')}
-                  Add More Photos
+                  Add More Photos/Videos
                 </button>
               </div>
             ` : ''}
           </div>
           
           <!-- Details Column -->
-          <div class="col-12 col-6">
+          <div class="col-12 col-lg-6">
             <div class="mb-3">
               <label class="form-label">Status</label>
               ${StatusSelect.render(finding.status, isEditable)}
@@ -97,12 +103,21 @@ export class FindingModal {
 
     // Attach photo upload handler
     const addPhotosBtn = modal.querySelector('#addPhotosBtn');
-    const imageInput = modal.querySelector('#additionalImage');
+    const imageInput = modal.querySelector('#additionalMedia');
     if (addPhotosBtn && imageInput) {
       addPhotosBtn.addEventListener('click', () => imageInput.click());
       imageInput.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
+
+        // Validate files
+        for (const file of files) {
+          const error = validateMedia(file);
+          if (error) {
+            showErrorAlert(error);
+            return;
+          }
+        }
 
         try {
           // Disable button while uploading
@@ -145,7 +160,7 @@ export class FindingModal {
           addPhotosBtn.disabled = false;
           addPhotosBtn.innerHTML = `
             ${IconService.createIcon('Upload')}
-            Add More Photos
+            Add More Photos/Videos
           `;
         }
       });
@@ -221,6 +236,17 @@ export class FindingModal {
           <div class="carousel-inner">
             ${normalizedImages.map((image, index) => `
               <div class="carousel-item ${index === 0 ? 'active' : ''}">
+                ${this.isVideo(image.url || image) ? `
+                <video
+                  src="${image.url || image}"
+                  class="d-block w-100 rounded"
+                  style="max-height: 400px; object-fit: contain; background: #f8f9fa"
+                  controls
+                  controlsList="nodownload"
+                >
+                  Your browser does not support video playback
+                </video>
+                ` : `
                 <img
                   src="${image.url}"
                   alt="Finding image ${index + 1}"
@@ -233,6 +259,7 @@ export class FindingModal {
                     Uploaded ${formatDateTime(image.uploadedAt)}
                   </div>
                 ` : ''}
+                `}
               </div>
             `).join('')}
           </div>
@@ -273,6 +300,15 @@ export class FindingModal {
       <div class="row g-2">
         ${normalizedImages.map((image, index) => `
           <div class="col-3">
+            ${this.isVideo(image.url || image) ? `
+            <div
+              class="img-thumbnail thumbnail-nav${index === 0 ? ' active' : ''}"
+              data-index="${index}"
+              style="height: 60px; width: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer"
+            >
+              <i class="fas fa-play"></i>
+            </div>
+            ` : `
             <img
               src="${image.url}"
               alt="Thumbnail ${index + 1}"
@@ -280,6 +316,7 @@ export class FindingModal {
               data-index="${index}"
               style="height: 60px; width: 100%; object-fit: cover; cursor: pointer"
             />
+            `}
           </div>
         `).join('')}
       </div>
