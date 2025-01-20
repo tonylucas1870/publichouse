@@ -60,7 +60,6 @@ export class ChangeoverService {
         throw new Error('No changeover ID provided');
       }
 
-
       // Get current user (if authenticated)
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -97,6 +96,37 @@ export class ChangeoverService {
     }
   }
 
+  async getChangeoverByToken(token) {
+    try {
+      if (!token) {
+        throw new Error('No share token provided');
+      }
+
+      const { data, error } = await supabase
+        .from('changeovers')
+        .select(`
+          id,
+          checkin_date,
+          checkout_date,
+          status,
+          share_token,
+          property:properties (
+            id,
+            name
+          )
+        `)
+        .eq('share_token', token)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('Changeover not found');
+
+      return data;
+    } catch (error) {
+      console.error('ChangeoverService error:', error);
+      throw handleSupabaseError(error, error.message || 'Failed to load shared changeover');
+    }
+  }
   async getProperties() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
