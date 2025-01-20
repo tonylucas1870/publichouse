@@ -199,6 +199,11 @@ export class ContentsModal {
   static renderImageCarousel(images) {
     if (!Array.isArray(images) || !images.length) return '';
 
+    const isVideo = (url) => {
+      if (!url) return false;
+      const urlStr = typeof url === 'string' ? url : url.url;
+      return urlStr.toLowerCase().includes('.mp4') || urlStr.toLowerCase().includes('.webm');
+    };
     const hasMultipleImages = images.length > 1;
 
     return `
@@ -207,12 +212,24 @@ export class ContentsModal {
           <div class="carousel-inner">
             ${images.map((image, index) => `
               <div class="carousel-item ${index === 0 ? 'active' : ''}">
+                ${isVideo(image) ? `
+                <video
+                  src="${image}"
+                  class="d-block w-100 rounded"
+                  style="max-height: 400px; object-fit: contain; background: #f8f9fa"
+                  controls
+                  controlsList="nodownload"
+                >
+                  Your browser does not support video playback
+                </video>
+                ` : `
                 <img
                   src="${image || ''}"
                   alt="Item image ${index + 1}"
                   class="d-block w-100 rounded"
                   style="max-height: 400px; object-fit: contain; background: #f8f9fa"
                 />
+                `}
               </div>
             `).join('')}
           </div>
@@ -252,6 +269,15 @@ export class ContentsModal {
       <div class="row g-2">
         ${images.map((image, index) => `
           <div class="col-3">
+            ${isVideo(image) ? `
+            <div
+              class="img-thumbnail thumbnail-nav${index === 0 ? ' active' : ''}"
+              data-index="${index}"
+              style="height: 60px; width: 100%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; cursor: pointer"
+            >
+              <i class="fas fa-play"></i>
+            </div>
+            ` : `
             <img
               src="${image}"
               alt="Thumbnail ${index + 1}"
@@ -259,6 +285,7 @@ export class ContentsModal {
               data-index="${index}"
               style="height: 60px; width: 100%; object-fit: cover; cursor: pointer"
             />
+            `}
           </div>
         `).join('')}
       </div>

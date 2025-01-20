@@ -12,17 +12,17 @@ export function createImagePreview(file) {
   });
 }
 
-export function validateImage(file, { maxSize = 5 * 1024 * 1024, types = ['image/jpeg', 'image/png'] } = {}) {
+export function validateMedia(file, { maxSize = 50 * 1024 * 1024, types = ['image/jpeg', 'image/png', 'video/mp4', 'video/webm'] } = {}) {
   if (!file) {
-    return 'Please select an image';
+    return 'Please select an image or video';
   }
 
   if (!types.includes(file.type)) {
-    return 'Please select a valid image file (JPEG or PNG)';
+    return 'Please select a valid image or video file (JPEG, PNG, MP4, WebM)';
   }
 
   if (file.size > maxSize) {
-    return `Image size must be less than ${Math.round(maxSize / 1024 / 1024)}MB`;
+    return `File size must be less than ${Math.round(maxSize / 1024 / 1024)}MB`;
   }
 
   return null;

@@ -211,6 +211,8 @@ export class ContentsForm {
 
   static async handleImageChange(container, file, onUpdate) {
     try {
+      const error = validateMedia(file);
+      const isVideo = file.type.startsWith('video/');
       const imageUrl = file ? await ContentsImageService.uploadImage(file) : null;
       if (imageUrl) {
         const currentImages = Array.from(container.querySelectorAll('.contents-images img')).map(img => img.src);
