@@ -34,10 +34,10 @@ export class FindingModal {
             ${this.renderImageCarousel(images)}
             ${isEditable ? `
               <div class="mt-3">
-                <input type="file" id="additionalImage" accept="image/*" class="d-none" multiple>
+                <input type="file" id="additionalMedia" accept="image/*,video/*" class="d-none" multiple>
                 <button class="btn btn-outline-primary btn-sm w-100" id="addPhotosBtn">
                   ${IconService.createIcon('Upload')}
-                  Add More Photos
+                  Add More Photos/Videos
                 </button>
               </div>
             ` : ''}
@@ -103,12 +103,21 @@ export class FindingModal {
 
     // Attach photo upload handler
     const addPhotosBtn = modal.querySelector('#addPhotosBtn');
-    const imageInput = modal.querySelector('#additionalImage');
+    const imageInput = modal.querySelector('#additionalMedia');
     if (addPhotosBtn && imageInput) {
       addPhotosBtn.addEventListener('click', () => imageInput.click());
       imageInput.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
+
+        // Validate files
+        for (const file of files) {
+          const error = validateMedia(file);
+          if (error) {
+            showErrorAlert(error);
+            return;
+          }
+        }
 
         try {
           // Disable button while uploading
@@ -151,7 +160,7 @@ export class FindingModal {
           addPhotosBtn.disabled = false;
           addPhotosBtn.innerHTML = `
             ${IconService.createIcon('Upload')}
-            Add More Photos
+            Add More Photos/Videos
           `;
         }
       });

@@ -61,7 +61,7 @@ export class UploadForm {
           />
           <button type="button" class="btn btn-outline-primary w-100" id="addImagesBtn">
             ${IconService.createIcon('Upload')}
-            Upload Images
+            Upload Images/Videos
           </button>
         </div>
 
