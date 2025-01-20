@@ -115,8 +115,15 @@
 .list-group-item {
   padding: 0.4rem;
   margin-bottom: 0.25rem;
-  border: 1px solid rgba(0,0,0,0.125);
+  border-width: 0 0 1px 0;
+  border-style: solid;
+  border-color: rgba(0,0,0,0.125);
   border-radius: 0.375rem;
+}
+
+.list-group-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
 }
 
 /* Mobile optimizations */
