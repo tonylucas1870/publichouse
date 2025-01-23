@@ -2,6 +2,7 @@ import { IconService } from '../../services/IconService.js';
 import { Modal } from '../ui/Modal.js';
 import { StatusSelect } from '../ui/StatusSelect.js';
 import { formatDate } from '../../utils/dateUtils.js';
+import { validateMedia } from '../../utils/imageUtils.js';
 import { FindingNotes } from './FindingNotes.js';
 import { authStore } from '../../auth/AuthStore.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
