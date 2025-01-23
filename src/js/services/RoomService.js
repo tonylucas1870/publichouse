@@ -1,49 +1,53 @@
 import { supabase } from '../lib/supabase.js';
 import { handleSupabaseError } from '../utils/errorUtils.js';
 
-export class RoomService {
-  async getRooms(id, isChangeoverId = false) {
+export class RoomService { 
+  async getRooms(propertyId) {
     try {
-      console.debug('RoomService: Getting rooms', { id, isChangeoverId });
-
-      let propertyId = id;
-
-      // If this is a changeover ID, get the property ID first
-      if (isChangeoverId) {
-        console.debug('RoomService: Getting property ID from changeover');
-        const { data: changeover, error: changeoverError } = await supabase
-          .from('changeovers')
-          .select(`
-            id,
-            property_id,
-            property:properties (
-              id,
-              name,
-              created_by
-            )
-          `)
-          .eq('id', id)
-          .single();
-
-        if (changeoverError) {
-          console.error('RoomService: Error getting changeover', changeoverError);
-          throw changeoverError;
-        }
-
-        if (!changeover?.property_id) {
-          console.error('RoomService: No property ID found for changeover');
-          throw new Error('Property not found');
-        }
-
-        propertyId = changeover.property_id;
-        console.debug('RoomService: Got property ID from changeover', { propertyId });
+      if (!propertyId) {
+        throw new Error('Property ID is required');
       }
+
+      let actualPropertyId = propertyId;
+      let isSharedAccess = false;
+
+      try {
+        // Try to get changeover first
+        const { data: changeover } = await supabase
+          .from('changeovers')
+          .select('property_id, share_token')
+          .eq('id', propertyId)
+          .maybeSingle();
+
+        // If we found a changeover, use its property ID
+        if (changeover) {
+          actualPropertyId = changeover.property_id;
+          isSharedAccess = !!changeover.share_token;
+        } else {
+          // Not a changeover ID, try to verify it's a valid property ID
+          const { data: property } = await supabase
+            .from('properties')
+            .select('id')
+            .eq('id', propertyId)
+            .maybeSingle();
+            
+          if (!property) {
+            throw new Error('Invalid property or changeover ID');
+          }
+        }
+      } catch (error) {
+        console.error('RoomService: Error checking ID type:', error);
+        throw new Error('Invalid property or changeover ID');
+      }
+
+      // Store shared access state
+      this.isSharedAccess = isSharedAccess;
 
       // Get rooms for the property
       const { data: rooms, error: roomsError } = await supabase
         .from('rooms')
         .select('id, name')
-        .eq('property_id', propertyId)
+        .eq('property_id', actualPropertyId)
         .order('name');
 
       if (roomsError) {
@@ -51,7 +55,7 @@ export class RoomService {
         throw roomsError;
       }
 
-      console.debug('RoomService: Got rooms', { 
+      console.debug('RoomService: Got rooms', {
         count: rooms?.length,
         rooms: rooms?.map(r => r.name)
       });
@@ -63,53 +67,71 @@ export class RoomService {
     }
   }
 
-  async addRoom(propertyId, name) {
+  async addRoom(propertyId, name) { 
     try {
       console.debug('RoomService: Adding room', { propertyId, name });
+      
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Please sign in to create rooms');
+      }
+      
+      let actualPropertyId = propertyId;
+
+      // Check if this is a changeover ID
+      const { data: changeover } = await supabase
+        .from('changeovers')
+        .select('property_id')
+        .eq('id', propertyId)
+        .maybeSingle();
+
+      if (changeover) {
+        actualPropertyId = changeover.property_id;
+      }
+
+      // Verify property access
+      const { data: property } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('id', actualPropertyId)
+        .maybeSingle();
+
+      if (!property) {
+        throw new Error('Invalid property ID');
+      }
 
       if (!name || !name.trim()) {
         throw new Error('Room name is required');
-      }
-
-      // Get property ID from changeover if needed
-      let actualPropertyId = propertyId;
-      if (propertyId.includes('-')) { // Likely a UUID, so probably a changeover ID
-        console.debug('RoomService: Getting property ID from changeover');
-        const { data: changeover, error: changeoverError } = await supabase
-          .from('changeovers')
-          .select('property_id')
-          .eq('id', propertyId)
-          .single();
-
-        if (changeoverError) throw changeoverError;
-        if (!changeover?.property_id) throw new Error('Property not found');
-        
-        actualPropertyId = changeover.property_id;
-        console.debug('RoomService: Got property ID', { actualPropertyId });
       }
 
       // First check if room already exists
       const { data: existingRooms, error: checkError } = await supabase
         .from('rooms')
         .select('id, name')
-        .eq('property_id', actualPropertyId)
-        .ilike('name', name.trim());
+        .eq('property_id', actualPropertyId);
 
       if (checkError) {
         console.error('RoomService: Error checking existing room', checkError);
         throw handleSupabaseError(checkError);
       }
 
-      if (existingRooms?.length > 0) {
+      // Case-insensitive name check
+      const normalizedName = name.trim().toLowerCase();
+      const existingRoom = existingRooms?.find(room => 
+        room.name.toLowerCase() === normalizedName
+      );
+
+      if (existingRoom) {
         console.debug('RoomService: Room already exists', existingRooms[0]);
-        return existingRooms[0];
+        return existingRoom;
       }
 
       // Create new room
       const { data: newRoom, error: createError } = await supabase
         .from('rooms')
-        .insert({ 
-          property_id: actualPropertyId, 
+        .insert({
+          property_id: actualPropertyId,
           name: name.trim() 
         })
         .select()

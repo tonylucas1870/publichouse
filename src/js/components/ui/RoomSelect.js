@@ -5,7 +5,6 @@ export class RoomSelect {
   constructor(containerId, propertyId) {
     this.container = document.getElementById(containerId);
     this.propertyId = propertyId;
-    this.isChangeoverId = propertyId.includes('-'); // Check if it's a UUID
     this.roomService = new RoomService();
     this.rooms = [];
     this.initialize();
@@ -13,10 +12,12 @@ export class RoomSelect {
 
   async initialize() {
     try {
-      this.rooms = await this.roomService.getRooms(this.propertyId, this.isChangeoverId);
+      this.rooms = await this.roomService.getRooms(this.propertyId);
+      this.isSharedAccess = this.roomService.isSharedAccess;
       console.debug('RoomSelect: Initialized with rooms', {
         count: this.rooms.length,
-        rooms: this.rooms.map(r => r.name)
+        rooms: this.rooms.map(r => r.name),
+        isSharedAccess: this.isSharedAccess
       });
       this.render();
       this.attachEventListeners();
@@ -30,7 +31,9 @@ export class RoomSelect {
     if (this.container.querySelector('#location')) {
       // If input exists, just update datalist
       const datalist = this.container.querySelector('#roomSuggestions');
-      datalist.innerHTML = this.rooms.map(room => `<option value="${room.name}">`).join('');
+      if (datalist) {
+        datalist.innerHTML = this.rooms.map(room => `<option value="${room.name}">`).join('');
+      }
       return;
     }
 
@@ -51,27 +54,38 @@ export class RoomSelect {
             autocomplete="off"
             spellcheck="false"
           />
-          <datalist id="roomSuggestions">
-            ${this.rooms.map(room => `<option value="${room.name}">`).join('')}
-          </datalist>
+          <datalist id="roomSuggestions"></datalist>
           <div class="invalid-feedback">
             Please specify where the item was found
           </div>
         </div>
       </div>
     `;
+    
+    // Update datalist
+    this.updateDatalist();
   }
 
   attachEventListeners() {
     const input = this.container.querySelector('#location');
     
+    // Track if we're currently processing a room change
+    let isProcessing = false;
+    
     const handleRoomChange = async (e) => {
+      // Prevent concurrent processing
+      if (isProcessing) return;
+      
       const value = e.target.value.trim();
       if (!value) return;
 
-      console.debug('RoomSelect: Input blur event', { value });
+      console.debug('RoomSelect: Processing room change', { 
+        value,
+        eventType: e.type
+      });
       
       try {
+        isProcessing = true;
         let room;
         const existingRoom = this.rooms.find(room => 
           room.name.toLowerCase() === value.toLowerCase()
@@ -88,8 +102,7 @@ export class RoomSelect {
             this.rooms.push(room);
             this.rooms.sort((a, b) => a.name.localeCompare(b.name));
             // Just update datalist
-            const datalist = this.container.querySelector('#roomSuggestions');
-            datalist.innerHTML = this.rooms.map(r => `<option value="${r.name}">`).join('');
+            this.updateDatalist();
           }
         }
 
@@ -107,13 +120,25 @@ export class RoomSelect {
         input.value = ''; // Clear invalid input
         input.focus();
         throw error; // Let the form handle the error
+      } finally {
+        isProcessing = false;
       }
     };
 
-    // Remove any existing listeners
-    input.removeEventListener('change', handleRoomChange);
-    // Add new listener
-    input.addEventListener('change', handleRoomChange);
+    // Handle datalist selection
+    const handleInput = (e) => {
+      if (e.inputType === 'insertReplacementText') {
+        handleRoomChange(e);
+      }
+    };
+    
+    // Clean up old listeners
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    
+    // Add listeners to fresh input
+    newInput.addEventListener('blur', handleRoomChange);
+    newInput.addEventListener('input', handleInput);
   }
 
   showError() {
@@ -145,5 +170,13 @@ export class RoomSelect {
   
   async getRooms() {
     return this.rooms;
+  }
+
+  updateDatalist() {
+    const datalist = this.container.querySelector('#roomSuggestions');
+    if (datalist) {
+      datalist.innerHTML = this.rooms.map(room => `<option value="${room.name}">`).join('');
+    }
+    return this.rooms.map(room => `<option value="${room.name}">`).join('');
   }
 }
