@@ -21,15 +21,30 @@ export class NotificationService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Authentication required');
 
-      const { data, error } = await supabase
+      // First try to update existing preference
+      let { data, error } = await supabase
         .from('notification_preferences')
-        .upsert({
+        .update({
+          enabled
+        })
+        .eq('user_id', user.id)
+        .eq('notification_type', type)
+        .select()
+        .single();
+
+      // If no existing preference, insert new one
+      if (error?.code === 'PGRST116') {
+        ({ data, error } = await supabase
+          .from('notification_preferences')
+          .insert({
           user_id: user.id,
           notification_type: type,
           enabled
-        })
-        .select()
-        .single();
+          })
+          .select()
+          .single()
+        );
+      }
 
       if (error) throw error;
       return data;
