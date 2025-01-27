@@ -1,22 +1,40 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const smtp = new SMTPClient({
-  connection: {
-    hostname: Deno.env.get('SMTP_HOST') as string,
-    port: parseInt(Deno.env.get('SMTP_PORT') || '587'),
-    tls: true,
-    auth: {
-      username: Deno.env.get('SMTP_USER') as string,
-      password: Deno.env.get('SMTP_PASS') as string,
+const SENDGRID_API_KEY = Deno.env.get('SENDGRID_API_KEY') as string;
+const SENDGRID_FROM_EMAIL = Deno.env.get('SENDGRID_FROM_EMAIL') as string;
+
+async function sendEmail(to: string, subject: string, content: string) {
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+      'Content-Type': 'application/json',
     },
-  },
-});
+    body: JSON.stringify({
+      personalizations: [{
+        to: [{ email: to }]
+      }],
+      from: { email: SENDGRID_FROM_EMAIL },
+      subject: subject,
+      content: [{
+        type: 'text/plain',
+        value: content
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`SendGrid API error: ${JSON.stringify(error)}`);
+  }
+
+  return response;
+}
 
 serve(async (req) => {
   try {
@@ -62,13 +80,8 @@ serve(async (req) => {
           body = body.replace(pattern, value as string);
         });
 
-        // Send email
-        await smtp.send({
-          from: Deno.env.get('SMTP_FROM') as string,
-          to: user.email,
-          subject,
-          content: body,
-        });
+        // Send email using SendGrid
+        await sendEmail(user.email, subject, body);
 
         // Mark as sent
         const { error: updateError } = await supabase
