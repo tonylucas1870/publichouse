@@ -1,0 +1,8 @@
+{
+  "to": "your-email@example.com",
+  "subject": "Test Notification from {{property_name}}",
+  "body": "This is a test notification for {{property_name}}.\n\nIf you're seeing this, email notifications are working!",
+  "data": {
+    "property_name": "Test Property"
+  }
+}
