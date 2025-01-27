@@ -117,6 +117,39 @@ class AuthStore {
       throw handleAuthError(error);
     }
   }
+
+  async updatePassword(currentPassword, newPassword) {
+    try {
+      // First verify current password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: this.currentUser.email,
+        password: currentPassword
+      });
+
+      if (signInError) throw signInError;
+
+      // Update password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      throw handleAuthError(error);
+    }
+  }
+
+  async deleteAccount() {
+    try {
+      const { error } = await supabase.rpc('delete_user');
+      if (error) throw error;
+      
+      // Sign out after deletion
+      await this.signOut();
+    } catch (error) {
+      throw handleAuthError(error);
+    }
+  }
 }
 
 export const authStore = new AuthStore();

@@ -5,6 +5,7 @@ import { initializePropertyView } from './propertyView.js';
 import { initializeChangeoverView } from './changeoverView.js';
 import { initializeSharedView } from './sharedView.js';
 import { initializeSubscriptionView } from './subscriptionView.js';
+import { initializeSettingsView } from './settingsView.js';
 import { authStore } from '../auth/AuthStore.js';
 import { showErrorAlert } from '../utils/alertUtils.js';
 
@@ -28,9 +29,10 @@ export async function initializeViews(services) {
     const shareToken = params.get('token');
     const propertyId = params.get('property');
     const subscription = params.get('subscription');
+    const settings = params.get('settings');
 
     // Handle unauthenticated state
-    if (!authStore.isAuthenticated() && !shareToken) {
+    if (!authStore.isAuthenticated() && !shareToken && settings !== 'profile') {
       elements.propertyList.style.display = 'block';
       elements.propertyList.innerHTML = `
         <div class="text-center p-4">
@@ -50,6 +52,8 @@ export async function initializeViews(services) {
         await initializePropertyView(services, elements, propertyId);
       } else if (subscription === 'manage') {
         await initializeSubscriptionView(services, elements);
+      } else if (settings === 'profile') {
+        await initializeSettingsView(services, elements);
       } else {
         await initializeHomeView(services, elements);
       }

@@ -51,6 +51,10 @@ export class AuthHeader {
         <button class="btn btn-outline-danger" id="signOutBtn">
           Sign Out
         </button>
+        <button class="btn btn-outline-primary" id="settingsBtn">
+          ${IconService.createIcon('Settings')}
+          Settings
+        </button>
         <button class="btn btn-outline-primary" id="subscriptionBtn">
           ${IconService.createIcon('CreditCard')}
           Subscription
@@ -65,6 +69,11 @@ export class AuthHeader {
           } catch (error) {
             showErrorAlert(error.message);
           }
+        });
+
+        const settingsBtn = this.authButtons.querySelector('#settingsBtn');
+        settingsBtn.addEventListener('click', () => {
+          window.location.href = '/?settings=profile';
         });
 
         const subscriptionBtn = this.authButtons.querySelector('#subscriptionBtn');
