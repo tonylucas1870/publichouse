@@ -180,25 +180,14 @@ export class FindingsService {
   async add({ description, location, content_item, images, changeoverId }) {
     try {
       // Verify changeover access first
-      const { data: changeover, error: changeoverError } = await supabase
+      const { data: changeover, error: changeoverError } = await supabase 
         .from('changeovers')
-        .select(`
-          id,
-          property:properties (
-            id,
-            created_by
-          )
-        `)
+        .select('id, share_token, property_id')
         .eq('id', changeoverId)
         .single();
 
       if (changeoverError) throw changeoverError;
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || user.id !== changeover.property.created_by) {
-        throw new Error('Access denied');
-      }
+      if (!changeover) throw new Error('Changeover not found');
 
       // Upload all images
       const uploadedUrls = await Promise.all(
@@ -211,12 +200,12 @@ export class FindingsService {
           description,
           location,
           content_item,
+          changeover_id: changeoverId,
+          status: 'pending',
           images: uploadedUrls.map(({ publicUrl, uploadedAt }) => ({
             url: publicUrl,
             uploadedAt
           })),
-          changeover_id: changeoverId,
-          status: 'pending',
           date_found: getCurrentDate(),
           notes: []
         })
