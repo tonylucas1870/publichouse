@@ -2,6 +2,7 @@ import { FindingsService } from './FindingsService.js';
 import { ChangeoverService } from './ChangeoverService.js';
 import { PropertyService } from './PropertyService.js';
 import { IconService } from './IconService.js';
+import { AnonymousUserService } from './AnonymousUserService.js';
 import { authStore } from '../auth/AuthStore.js';
 
 export async function initializeServices() {
@@ -16,12 +17,14 @@ export async function initializeServices() {
     const findingsService = new FindingsService();
     const changeoverService = new ChangeoverService();
     const propertyService = new PropertyService();
+    const anonymousUserService = new AnonymousUserService();
 
     // Return initialized services
     return {
       findings: findingsService,
       changeover: changeoverService,
-      property: propertyService
+      property: propertyService,
+      anonymous: anonymousUserService
     };
   } catch (error) {
     console.error('Failed to initialize services:', error);

@@ -115,7 +115,6 @@ export class FindingsList {
   async handleAddNote(findingId, text) {
     try {
       await this.findingsService.addNote(findingId, text);
-      await this.initialize();
     } catch (error) {
       console.error('Error adding note:', error);
       showErrorAlert('Failed to add note. Please try again.');

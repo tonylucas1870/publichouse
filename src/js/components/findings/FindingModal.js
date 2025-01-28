@@ -11,7 +11,7 @@ import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 import { formatDateTime } from '../../utils/dateUtils.js';
 
 export class FindingModal {
-  static show(finding, findingsService, onUpdateStatus, onAddNote) {
+  static async show(finding, findingsService, onUpdateStatus, onAddNote) {
     console.debug('FindingModal: Showing finding details', {
       id: finding.id,
       hasContentItem: finding.content_item !== null && finding.content_item !== undefined
@@ -19,6 +19,7 @@ export class FindingModal {
 
     const isEditable = authStore.isAuthenticated();
     const images = Array.isArray(finding.images) ? finding.images : [finding.image_url];
+    const canAddNotes = true; // Always allow notes for both authenticated and anonymous users
 
     const { modal, closeModal } = Modal.show({
       title: 'Finding Details',
@@ -86,7 +87,9 @@ export class FindingModal {
               </div>
             </div>
 
-            ${FindingNotes.render(finding.notes || [])}
+            <div class="finding-notes mt-3" id="findingNotesContainer">
+              <!-- Notes and input form will be rendered here -->
+            </div>
           </div>
         </div>
       `
@@ -188,27 +191,60 @@ export class FindingModal {
       });
     }
 
-    // Attach notes event listeners
-    const notesContainer = modal.querySelector('.finding-notes');
-    if (notesContainer) {
-      const handleAddNote = async (text) => {
+    // Render initial notes
+    const notesContainer = modal.querySelector('#findingNotesContainer');
+    try {
+      const notesHtml = await FindingNotes.render(finding.notes || []);
+      notesContainer.innerHTML = notesHtml;
+
+      // Attach notes event listeners
+      const handleNoteSubmit = async (e) => {
+        e.preventDefault();
+        
+        const form = e.target;
+        const submitButton = form.querySelector('button[type="submit"]');
+        const input = form.querySelector('input');
+        const text = input.value.trim();
+        
+        if (!text) return;
+        
+        submitButton.disabled = true;
+
         try {
           await onAddNote(finding.id, text);
+          
           // Refresh finding data
           const updatedFinding = await findingsService.getFinding(finding.id);
           if (updatedFinding) {
             // Re-render notes section
-            const updatedNotesHtml = FindingNotes.render(updatedFinding.notes || []);
-            notesContainer.innerHTML = updatedNotesHtml;
-            // Reattach event listeners with same handler
-            FindingNotes.attachEventListeners(notesContainer, handleAddNote);
+            const notesHtml = await FindingNotes.render(updatedFinding.notes || []);
+            notesContainer.innerHTML = notesHtml;
+
+            // Re-attach event listener
+            const newForm = notesContainer.querySelector('.add-note-form');
+            if (newForm) {
+              newForm.addEventListener('submit', handleNoteSubmit);
+            }
           }
         } catch (error) {
           console.error('Error handling note:', error);
           showErrorAlert('Failed to add note. Please try again.');
+        } finally {
+          submitButton.disabled = false;
+          input.value = '';
         }
       };
-      FindingNotes.attachEventListeners(notesContainer, handleAddNote);
+
+      // Attach initial event listener
+      const form = notesContainer.querySelector('.add-note-form');
+      if (form) {
+        form.addEventListener('submit', handleNoteSubmit);
+      }
+    } catch (error) {
+      console.error('Error rendering notes:', error);
+      notesContainer.innerHTML = `
+        <div class="alert alert-danger">Failed to load notes. Please try again.</div>
+      `;
     }
 
     // Attach status change listener if editable

@@ -13,6 +13,7 @@ export class UserSettings {
   async initialize() {
     try {
       const preferences = await this.notificationService.getPreferences();
+      this.preferences = preferences;
       this.render(preferences);
       this.attachEventListeners();
     } catch (error) {
@@ -24,6 +25,39 @@ export class UserSettings {
   render(preferences) {
     this.container.innerHTML = `
       <div class="row g-4">
+        <!-- Display Name -->
+        <div class="col-12 col-lg-6">
+          <div class="card">
+            <div class="card-header bg-transparent d-flex align-items-center gap-2">
+              ${IconService.createIcon('User')}
+              <h3 class="h5 mb-0">Display Name</h3>
+            </div>
+            <div class="card-body">
+              <form id="displayNameForm">
+                <div class="mb-3">
+                  <label for="displayName" class="form-label">Display Name (Optional)</label>
+                  <input type="text" class="form-control" id="displayName" 
+                         value="${preferences.display_name || ''}"
+                         placeholder="Enter a display name">
+                  <div class="form-text">
+                    This name will be shown instead of your email address when you add notes or comments.
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  Save Display Name
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anonymous User Upgrade -->
+        ${this.anonymousUserService?.isAnonymous() ? `
+          <div class="col-12">
+            ${AnonymousUpgradeForm.render(this.anonymousUserService)}
+          </div>
+        ` : ''}
+
         <!-- Notification Preferences -->
         <div class="col-12 col-lg-6">
           <div class="card">
@@ -133,11 +167,33 @@ export class UserSettings {
   }
 
   isEnabled(preferences, type) {
-    const pref = preferences?.find(p => p.notification_type === type);
-    return pref?.enabled ?? true; // Default to enabled if no preference set
+    return preferences?.notification_preferences?.[type] ?? true; // Default to enabled if no preference set
   }
 
   attachEventListeners() {
+    // Display name form
+    const displayNameForm = this.container.querySelector('#displayNameForm');
+    if (displayNameForm) {
+      displayNameForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        try {
+          await this.notificationService.updateDisplayName(
+            displayNameForm.displayName.value.trim()
+          );
+          showErrorAlert('Display name updated successfully', 'success');
+        } catch (error) {
+          console.error('Error updating display name:', error);
+          showErrorAlert(error.message);
+        }
+      });
+    }
+
+    // Anonymous user upgrade
+    if (this.anonymousUserService?.isAnonymous()) {
+      AnonymousUpgradeForm.attachEventListeners(this.container, this.anonymousUserService);
+    }
+
     // Notification preferences
     const checkboxes = this.container.querySelectorAll('.form-check-input');
     checkboxes.forEach(checkbox => {

@@ -179,20 +179,65 @@ export class FindingsService {
 
   async add({ description, location, content_item, images, changeoverId }) {
     try {
+      console.debug('FindingsService: Adding finding', {
+        description,
+        location,
+        hasContentItem: !!content_item,
+        imageCount: images.length,
+        changeoverId
+      });
+
       // Verify changeover access first
-      const { data: changeover, error: changeoverError } = await supabase 
+      const { data: changeover, error: changeoverError } = await supabase
         .from('changeovers')
         .select('id, share_token, property_id')
         .eq('id', changeoverId)
         .single();
 
+      console.debug('FindingsService: Changeover check result', {
+        hasChangeover: !!changeover,
+        hasShareToken: !!changeover?.share_token,
+        error: changeoverError
+      });
+
       if (changeoverError) throw changeoverError;
       if (!changeover) throw new Error('Changeover not found');
+
+      // Get anonymous user ID if available
+      let anonymousUserId = null;
+      const anonymousId = localStorage.getItem('anonymousId'); 
+      
+      console.debug('FindingsService: Anonymous user check', {
+        hasAnonymousId: !!anonymousId,
+        anonymousId
+      });
+
+      if (anonymousId) {
+        const { data: users, error: userError } = await supabase
+          .from('anonymous_users')
+          .select('id')
+          .eq('anonymous_id', anonymousId);
+
+        if (userError) {
+          console.error('FindingsService: Error looking up anonymous user', userError);
+        } else if (users && users.length > 0) {
+          anonymousUserId = users[0].id;
+        }
+      }
+
+      console.debug('FindingsService: Anonymous user lookup result', {
+        hasAnonymousUserId: !!anonymousUserId,
+        anonymousUserId
+      });
 
       // Upload all images
       const uploadedUrls = await Promise.all(
         images.map(image => uploadFile('findings', image))
       );
+
+      console.debug('FindingsService: Images uploaded', {
+        uploadedCount: uploadedUrls.length
+      });
 
       const { data, error } = await supabase
         .from('findings')
@@ -200,6 +245,7 @@ export class FindingsService {
           description,
           location,
           content_item,
+          anonymous_user_id: anonymousUserId,
           changeover_id: changeoverId,
           status: 'pending',
           images: uploadedUrls.map(({ publicUrl, uploadedAt }) => ({
@@ -212,11 +258,22 @@ export class FindingsService {
         .select()
         .single();
 
+      console.debug('FindingsService: Finding insert result', {
+        success: !!data && !error,
+        error,
+        findingId: data?.id
+      });
+
       if (error) throw error;
       
       return data;
     } catch (error) {
       console.error('FindingsService: Error adding finding', error);
+      console.debug('FindingsService: Full error details', {
+        error,
+        changeoverId,
+        hasAnonymousId: !!localStorage.getItem('anonymousId')
+      });
       throw handleSupabaseError(error, 'Failed to add finding');
     }
   }
@@ -249,30 +306,93 @@ export class FindingsService {
 
   async addNote(findingId, text) {
     try {
+      console.debug('FindingsService: Adding note', { findingId, text });
+
+      // Get finding details including anonymous user info
       const { data: finding, error: findingError } = await supabase
         .from('findings')
-        .select('notes')
+        .select(`
+          notes,
+          changeover:changeovers (
+            share_token
+          ),
+          anonymous_user_id
+        `)
         .eq('id', findingId)
         .single();
 
       if (findingError) throw findingError;
 
+      console.debug('FindingsService: Found finding', {
+        hasNotes: !!finding.notes,
+        noteCount: finding.notes?.length,
+        hasShareToken: !!finding.changeover?.share_token,
+        hasAnonymousId: !!finding.anonymous_user_id
+      });
+
+      // Get user info for the note
       const { data: { user } } = await supabase.auth.getUser();
+      let noteAuthor;
+
+      if (user) {
+        // Authenticated user
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('display_name')
+          .eq('user_id', user.id)
+          .single();
+
+        noteAuthor = {
+          type: 'authenticated',
+          id: user.id,
+          display_name: settings?.display_name || user.email
+        };
+      } else if (finding.changeover?.share_token) {
+        // Anonymous user with share token
+        const anonymousId = localStorage.getItem('anonymousId');
+        const anonymousName = localStorage.getItem('anonymousName');
+        
+        noteAuthor = {
+          type: 'anonymous',
+          id: anonymousId,
+          display_name: anonymousName || 'Anonymous User'
+        };
+      } else {
+        throw new Error('Not authorized to add notes');
+      }
+
+      console.debug('FindingsService: Creating note with author', { noteAuthor });
+
+      // Create new note with enhanced metadata
       const newNote = {
+        id: crypto.randomUUID(),
         text,
-        user_email: user.email,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        author: noteAuthor
       };
 
-      const notes = [...(finding.notes || []), newNote];
+      // Ensure notes is an array
+      const currentNotes = Array.isArray(finding.notes) ? finding.notes : [];
+      const notes = [...currentNotes, newNote];
+
+      console.debug('FindingsService: Updating finding with new note', {
+        noteCount: notes.length,
+        latestNote: newNote
+      });
 
       const { error: updateError } = await supabase
         .from('findings')
         .update({ notes })
         .eq('id', findingId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('FindingsService: Error updating notes', updateError);
+        throw updateError;
+      }
+
+      console.debug('FindingsService: Note added successfully');
     } catch (error) {
+      console.error('FindingsService: Error adding note', error);
       throw handleSupabaseError(error, 'Failed to add note');
     }
   }

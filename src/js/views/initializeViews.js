@@ -45,9 +45,21 @@ export async function initializeViews(services) {
     // Initialize appropriate view based on URL parameters
     try {
       if (shareToken) {
-        await initializeSharedView(services, elements, shareToken);
+        // Always use sharedView for share token URLs
+        await initializeSharedView({
+          auth: authStore,
+          changeover: services.changeover,
+          findings: services.findings,
+          anonymous: services.anonymous
+        }, elements, shareToken);
       } else if (changeoverId) {
-        await initializeChangeoverView(services, elements, changeoverId);
+        // Only use changeoverView for authenticated changeover access
+        await initializeChangeoverView({
+          auth: authStore,
+          changeover: services.changeover,
+          findings: services.findings,
+          anonymous: services.anonymous
+        }, elements, changeoverId);
       } else if (propertyId) {
         await initializePropertyView(services, elements, propertyId);
       } else if (subscription === 'manage') {
