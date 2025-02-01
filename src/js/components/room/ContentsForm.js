@@ -9,9 +9,10 @@ export class ContentsForm {
   static render(item = {}) {
     const images = Array.isArray(item.images) ? item.images : [];
     const hasImages = images.length > 0;
+    const itemId = item.id || crypto.randomUUID();
 
     return `
-      <div class="contents-form mb-3">
+      <div class="contents-form mb-3" data-id="${itemId}">
         <div class="row">
           <div class="col-12 col-md-4">
             <div class="contents-images mb-2">
@@ -65,6 +66,7 @@ export class ContentsForm {
 
   static getFormData(container) {
     return {
+      id: container.dataset.id || crypto.randomUUID(),
       name: container.querySelector('.contents-name').value.trim(),
       description: container.querySelector('.contents-description').value.trim(),
       images: Array.from(container.querySelectorAll('.contents-images img')).map(img => img.src)

@@ -1,10 +1,13 @@
 import { RoomService } from '../../services/RoomService.js';
 import { IconService } from '../../services/IconService.js';
+import { Modal } from './Modal.js';
+import { showErrorAlert } from '../../utils/alertUtils.js';
 
 export class RoomSelect {
   constructor(containerId, propertyId) {
     this.container = document.getElementById(containerId);
     this.propertyId = propertyId;
+    this.pendingRoomName = null;
     this.roomService = new RoomService();
     this.rooms = [];
     this.initialize();
@@ -66,6 +69,63 @@ export class RoomSelect {
     this.updateDatalist();
   }
 
+  showConfirmationModal(roomName) {
+    const { modal, closeModal } = Modal.show({
+      title: 'Add New Room',
+      content: `
+        <div class="mb-4">
+          <p>Would you like to create a new room called "${roomName}"?</p>
+          <p class="text-muted small">
+            Please verify this is not a misspelling of an existing room name.
+          </p>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmAddRoom">
+            ${IconService.createIcon('Plus')}
+            Add Room
+          </button>
+        </div>
+      `
+    });
+
+    // Handle confirmation
+    const confirmBtn = modal.querySelector('#confirmAddRoom');
+    confirmBtn.addEventListener('click', async () => {
+      try {
+        const room = await this.roomService.addRoom(this.propertyId, roomName);
+        if (room) {
+          this.rooms.push(room);
+          this.rooms.sort((a, b) => a.name.localeCompare(b.name));
+          this.updateDatalist();
+          
+          // Set input value and trigger room change
+          const input = this.container.querySelector('#location');
+          input.value = room.name;
+          
+          // Emit room change event
+          const event = new CustomEvent('roomchange', { 
+            detail: { room } 
+          });
+          this.container.dispatchEvent(event);
+        }
+        closeModal();
+      } catch (error) {
+        console.error('RoomSelect: Error creating room', error);
+        showErrorAlert(error.message || 'Failed to create room');
+      }
+    });
+
+    // Handle cancel
+    modal.querySelector('[data-dismiss="modal"]').addEventListener('click', () => {
+      closeModal();
+      // Clear the input
+      const input = this.container.querySelector('#location');
+      input.value = '';
+      input.focus();
+    });
+  }
+
   attachEventListeners() {
     const input = this.container.querySelector('#location');
     
@@ -79,41 +139,24 @@ export class RoomSelect {
       const value = e.target.value.trim();
       if (!value) return;
 
-      console.debug('RoomSelect: Processing room change', { 
-        value,
-        eventType: e.type
-      });
-      
       try {
         isProcessing = true;
-        let room;
+        
         const existingRoom = this.rooms.find(room => 
           room.name.toLowerCase() === value.toLowerCase()
         );
         
         if (existingRoom) {
-          console.debug('RoomSelect: Using existing room', existingRoom);
-          room = existingRoom;
+          // Use existing room
+          input.value = existingRoom.name;
+          const event = new CustomEvent('roomchange', { 
+            detail: { room: existingRoom } 
+          });
+          this.container.dispatchEvent(event);
         } else {
-          console.debug('RoomSelect: Creating new room', { value });
-          room = await this.roomService.addRoom(this.propertyId, value);
-          if (room) {
-            console.debug('RoomSelect: Room created successfully', room);
-            this.rooms.push(room);
-            this.rooms.sort((a, b) => a.name.localeCompare(b.name));
-            // Just update datalist
-            this.updateDatalist();
-          }
+          // Show confirmation modal for new room
+          this.showConfirmationModal(value);
         }
-
-        // Normalize case
-        input.value = room.name;
-
-        // Emit room change event
-        const event = new CustomEvent('roomchange', { 
-          detail: { room } 
-        });
-        this.container.dispatchEvent(event);
 
       } catch (error) {
         console.error('RoomSelect: Error handling room:', error);
