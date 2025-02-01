@@ -1,6 +1,7 @@
 import { IconService } from '../../services/IconService.js';
 import { ImageUpload } from '../ui/ImageUpload.js';
 import { RoomSelect } from '../ui/RoomSelect.js';
+import { RoomDetailsService } from '../../services/RoomDetailsService.js';
 import { RoomService } from '../../services/RoomService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { validateMedia } from '../../utils/imageUtils.js';
@@ -16,6 +17,7 @@ export class UploadForm {
     this.changeoverId = changeoverId;
     this.selectedImages = [];
     this.roomSelect = null;
+    this.roomDetailsService = new RoomDetailsService();
     
     this.render();
     this.attachEventListeners();
@@ -146,6 +148,23 @@ export class UploadForm {
 
       try {
         const contentItem = this.contentsSelect?.getValue();
+        
+        // If we have a room and content item, ensure it's added to room contents
+        if (contentItem && this.roomSelect) {
+          const roomName = this.roomSelect.getValue();
+          const rooms = await this.roomSelect.getRooms();
+          const room = rooms.find(r => r.name.toLowerCase() === roomName.toLowerCase());
+          
+          if (room) {
+            try {
+              await this.roomDetailsService.addContentItem(room.id, contentItem);
+            } catch (error) {
+              console.error('Error adding content item to room:', error);
+              // Continue with finding submission even if content item update fails
+            }
+          }
+        }
+
         console.debug('UploadForm: Submitting finding', {
           description: form.description.value.trim(),
           location: this.roomSelect.getValue(),

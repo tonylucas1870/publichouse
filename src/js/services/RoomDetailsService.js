@@ -92,4 +92,45 @@ export class RoomDetailsService {
       throw handleSupabaseError(error, 'Failed to update room details');
     }
   }
+
+  async addContentItem(roomId, contentItem) {
+    try {
+      // Get current room details
+      const details = await this.getRoomDetails(roomId);
+
+      // Check if item with same name already exists
+      const existingItem = details.contents.find(item => 
+        item.name.toLowerCase() === contentItem.name.toLowerCase()
+      );
+
+      if (existingItem) {
+        return existingItem;
+      }
+
+      // Add new item to contents
+      const updatedContents = [
+        ...details.contents,
+        {
+          id: contentItem.id || crypto.randomUUID(),
+          name: contentItem.name,
+          description: contentItem.description || '',
+          images: Array.isArray(contentItem.images) ? contentItem.images : []
+        }
+      ];
+
+      // Sort contents alphabetically
+      updatedContents.sort((a, b) => a.name.localeCompare(b.name));
+
+      // Update room details
+      const result = await this.updateRoomDetails(roomId, {
+        ...details,
+        contents: updatedContents
+      });
+
+      return result.contents.find(item => item.name === contentItem.name);
+    } catch (error) {
+      console.error('RoomDetailsService error:', error);
+      throw handleSupabaseError(error, 'Failed to add content item');
+    }
+  }
 }
