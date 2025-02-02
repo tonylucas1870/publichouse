@@ -28,6 +28,16 @@ export class PropertyModal {
                 </label>
                 <textarea class="form-control" id="propertyAddress" rows="2"></textarea>
               </div>
+              <div class="mb-3">
+                <label for="calendarUrl" class="form-label d-flex align-items-center gap-2">
+                  ${IconService.createIcon('Calendar')}
+                  Calendar URL (Optional)
+                </label>
+                <input type="url" class="form-control" id="calendarUrl" placeholder="iCal/ICS calendar URL">
+                <div class="form-text">
+                  Add a calendar URL to automatically sync bookings
+                </div>
+              </div>
               <div class="d-flex justify-content-end gap-2">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                 <button type="submit" class="btn btn-primary">Add Property</button>
@@ -60,7 +70,8 @@ export class PropertyModal {
       e.preventDefault();
       const formData = {
         name: form.propertyName.value.trim(),
-        address: form.propertyAddress.value.trim() || null
+        address: form.propertyAddress.value.trim() || null,
+        calendar_url: form.calendarUrl.value.trim() || null
       };
 
       try {

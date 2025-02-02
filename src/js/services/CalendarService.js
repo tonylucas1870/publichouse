@@ -42,17 +42,27 @@ export class CalendarService {
   async syncPropertyCalendar(propertyId, bookings) {
     DebugLogger.log('CalendarService', 'Starting calendar sync', {
       propertyId,
-      bookingsCount: bookings.length
+      bookingsCount: bookings.length,
+      firstBooking: bookings[0] ? {
+        uid: bookings[0].uid,
+        start: bookings[0].start,
+        end: bookings[0].end
+      } : null
     });
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      DebugLogger.log('CalendarService', 'Auth check', { 
+        hasUser: !!user,
+        userId: user?.id 
+      });
+
       if (!user) {
         throw new Error('Authentication required');
       }
 
       // Update property sync status to pending
-      await supabase
+      const { error: statusError } = await supabase
         .from('properties')
         .update({
           calendar_sync_status: 'pending',
@@ -60,6 +70,10 @@ export class CalendarService {
         })
         .eq('id', propertyId)
         .eq('created_by', user.id);
+
+      if (statusError) {
+        DebugLogger.error('CalendarService', 'Failed to update sync status', statusError);
+      }
 
       // Process each booking
       for (const booking of bookings) {
@@ -69,29 +83,59 @@ export class CalendarService {
           end: booking.end
         });
 
-        const { data: existing, error: checkError } = await supabase
-          .from('changeovers')
-          .select('id')
-          .eq('calendar_booking_id', booking.uid)
-          .single();
-
-        if (checkError && checkError.code !== 'PGRST116') {
-          throw checkError;
-        }
-
-        if (!existing) {
-          // Create new changeover
-          const { error: insertError } = await supabase
+        try {
+          // Check for existing booking
+          const { data: existing, error: checkError } = await supabase
             .from('changeovers')
-            .insert({
-              property_id: propertyId,
-              checkin_date: booking.start.toISOString().split('T')[0],
-              checkout_date: booking.end.toISOString().split('T')[0],
-              calendar_booking_id: booking.uid,
-              created_by: user.id
-            });
+            .select('id')
+            .eq('calendar_booking_id', booking.uid)
+            .maybeSingle();
 
-          if (insertError) throw insertError;
+          if (checkError) {
+            DebugLogger.error('CalendarService', 'Error checking existing booking', {
+              error: checkError,
+              bookingId: booking.uid
+            });
+            continue;
+          }
+
+          DebugLogger.log('CalendarService', 'Existing booking check', {
+            bookingId: booking.uid,
+            exists: !!existing,
+            existingId: existing?.id
+          });
+
+          // Only create if no existing booking found
+          if (!existing) {
+            const { error: insertError } = await supabase
+              .from('changeovers')
+              .insert({
+                property_id: propertyId,
+                checkin_date: booking.start.toISOString().split('T')[0],
+                checkout_date: booking.end.toISOString().split('T')[0],
+                calendar_booking_id: booking.uid,
+                created_by: user.id
+              });
+
+            if (insertError) {
+              DebugLogger.error('CalendarService', 'Failed to insert changeover', {
+                error: insertError,
+                booking: {
+                  uid: booking.uid,
+                  start: booking.start,
+                  end: booking.end
+                }
+              });
+              throw insertError;
+            }
+
+            DebugLogger.log('CalendarService', 'Created new changeover', {
+              bookingId: booking.uid
+            });
+          }
+        } catch (bookingError) {
+          DebugLogger.error('CalendarService', `Error processing booking ${booking.uid}`, bookingError);
+          continue;
         }
       }
 
@@ -110,16 +154,38 @@ export class CalendarService {
 
       DebugLogger.log('CalendarService', 'Calendar sync completed successfully');
     } catch (error) {
-      DebugLogger.error('CalendarService', 'Calendar sync failed', error);
+      DebugLogger.error('CalendarService', 'Calendar sync failed', { 
+        error,
+        context: {
+          propertyId,
+          bookingsCount: bookings.length,
+          lastQuery: error.query, // Supabase sometimes includes the failing query
+          pgError: error.pgError, // PostgreSQL specific error details
+          details: error.details,
+          hint: error.hint,
+          where: error.where,
+          position: error.position,
+          schema: error.schema,
+          table: error.table,
+          column: error.column,
+          dataType: error.dataType,
+          constraint: error.constraint,
+          stack: error.stack // Include stack trace
+        }
+      });
 
       // Update sync status to failed
-      await supabase
+      const { error: statusError } = await supabase
         .from('properties')
         .update({
           calendar_sync_status: 'failed',
           calendar_sync_error: error.message
         })
         .eq('id', propertyId);
+
+      if (statusError) {
+        DebugLogger.error('CalendarService', 'Failed to update error status', statusError);
+      }
 
       throw handleSupabaseError(error, 'Failed to sync calendar');
     }
