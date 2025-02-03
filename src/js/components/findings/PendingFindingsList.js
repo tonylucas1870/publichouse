@@ -27,7 +27,7 @@ export class PendingFindingsList {
   async initialize() {
     try {
       this.showLoading();
-      this.findings = await this.findingsService.getPendingFindings();
+      this.findings = await this.findingsService.getOpenFindings();
       this.applyPropertyFilter();
       
       // Only render if we have findings
@@ -73,13 +73,13 @@ export class PendingFindingsList {
       body: CollapsibleList.render({
         items: this.filteredFindings,
         renderItem: (finding) => this.renderFindingItem(finding),
-        emptyMessage: 'No open findings',
+        emptyMessage: 'No findings need attention',
         showMoreText: 'Show More Findings'
       })
     };
 
     this.container.innerHTML = CollapsibleSection.render({
-      title: 'Open Findings',
+      title: 'Findings Needing Attention',
       icon: 'Clock',
       content,
       headerClass: 'bg-warning bg-opacity-10',

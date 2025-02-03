@@ -50,7 +50,7 @@ export class FindingsService {
           )
         `)
         .eq('changeover_id', changeoverId)
-        .order('created_at', { ascending: false });
+        .order('date_found', { ascending: false });
 
       if (error) throw error;
       
@@ -136,7 +136,7 @@ export class FindingsService {
     }
   }
 
-  async getPendingFindings() {
+  async getOpenFindings() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return []; // Return empty array if not authenticated
@@ -161,7 +161,8 @@ export class FindingsService {
             )
           )
         `)
-        .eq('status', 'pending');
+        .in('status', ['open', 'blocked'])
+        .order('date_found', { ascending: false });
 
       if (error) throw error;
 
@@ -247,7 +248,7 @@ export class FindingsService {
           content_item,
           anonymous_user_id: anonymousUserId,
           changeover_id: changeoverId,
-          status: 'pending',
+          status: 'open',
           images: uploadedUrls.map(({ publicUrl, uploadedAt }) => ({
             url: publicUrl,
             uploadedAt

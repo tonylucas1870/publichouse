@@ -3,9 +3,10 @@ import { getStatusText } from '../../utils/statusUtils.js';
 export class StatusSelect {
   static render(currentStatus, isEditable = true) {
     const statuses = [
-      { value: 'pending', label: 'Pending' },
-      { value: 'fixed', label: 'Fixed' },
-      { value: 'wont_fix', label: 'Won\'t Fix' }
+      { value: 'open', label: 'Open' },
+      { value: 'blocked', label: 'Blocked' },
+      { value: 'wont_fix', label: 'Won\'t Fix' },
+      { value: 'fixed', label: 'Fixed' }
     ];
 
     if (!isEditable) {
