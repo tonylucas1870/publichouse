@@ -152,6 +152,19 @@ export class CalendarService {
 
       if (updateError) throw updateError;
 
+      // Mark initial sync as complete
+      const { error: syncFlagError } = await supabase
+        .from('properties')
+        .update({
+          initial_sync_complete: true
+        })
+        .eq('id', propertyId)
+        .eq('created_by', user.id);
+
+      if (syncFlagError) {
+        DebugLogger.error('CalendarService', 'Failed to update initial sync flag', syncFlagError);
+      }
+
       DebugLogger.log('CalendarService', 'Calendar sync completed successfully');
     } catch (error) {
       DebugLogger.error('CalendarService', 'Calendar sync failed', { 
