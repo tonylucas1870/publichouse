@@ -19,6 +19,7 @@ export class RoomDetails {
     this.details = null;
     this.isEditing = false;
     this.isSaving = false;
+    this.lastEditClick = 0;
 
     if (!this.container) {
       throw new Error('Room details container not found');

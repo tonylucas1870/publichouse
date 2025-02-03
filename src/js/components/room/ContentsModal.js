@@ -74,12 +74,19 @@ export class ContentsModal {
                         </small>
                       </div>
                       <div class="ms-3">
-                        <img 
-                          src="${finding.images[0]?.url || finding.images[0]}" 
-                          alt="Finding thumbnail" 
-                          class="rounded" 
-                          style="width: 60px; height: 60px; object-fit: cover"
-                        >
+                        ${finding.images?.length > 0 ? `
+                          <img 
+                            src="${finding.images[0]?.url || finding.images[0]}" 
+                            alt="Finding thumbnail" 
+                            class="rounded" 
+                            style="width: 60px; height: 60px; object-fit: cover"
+                          >
+                        ` : `
+                          <div class="rounded bg-light d-flex align-items-center justify-content-center" 
+                               style="width: 60px; height: 60px">
+                            ${IconService.createIcon('Image', { width: '24', height: '24', class: 'text-muted opacity-25' })}
+                          </div>
+                        `}
                       </div>
                     </div>
                   </div>
@@ -200,9 +207,8 @@ export class ContentsModal {
             </div>
           </div>
         </div>
-      </div>
-      <div class="modal-backdrop fade show"></div>
-    `;
+        <div class="modal-backdrop fade show"></div>
+      `;
 
     const closeModal = () => {
       document.body.removeChild(modal);
