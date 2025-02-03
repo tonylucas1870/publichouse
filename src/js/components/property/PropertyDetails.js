@@ -5,6 +5,7 @@ import { PropertyUtilities } from './PropertyUtilities.js';
 import { PropertyHeader } from './PropertyHeader.js';
 import { PropertyForm } from './PropertyForm.js';
 import { PropertyAccess } from './PropertyAccess.js';
+import { PropertyTasks } from './PropertyTasks.js';
 import { CalendarSync } from './CalendarSync.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { Navigation } from '../ui/Navigation.js';
@@ -97,7 +98,7 @@ export class PropertyDetails {
       <!-- Main Content -->
       <div class="row g-4">
         <!-- Rooms -->
-        <div class="col-12 col-lg-8">
+        <div class="col-12 col-lg-6">
           <div class="card h-100">
             <div class="card-header bg-transparent d-flex align-items-center gap-2">
               ${IconService.createIcon('DoorClosed')}
@@ -110,7 +111,7 @@ export class PropertyDetails {
         </div>
 
         <!-- Utilities -->
-        <div class="col-12 col-lg-4">
+        <div class="col-12 col-lg-6">
           <div class="card h-100">
             <div class="card-header bg-transparent d-flex align-items-center gap-2">
               ${IconService.createIcon('Zap')}
@@ -121,12 +122,20 @@ export class PropertyDetails {
             </div>
           </div>
         </div>
+
+        <!-- Tasks -->
+        <div class="col-12">
+          <div id="tasksContainer" data-is-admin="${this.property.isAdmin || false}"></div>
+        </div>
       </div>
     `;
 
     // Initialize sub-components
     new RoomList('roomListContainer', this.property.id, this.property.isAdmin);
     new PropertyUtilities('utilitiesContainer', this.property.id, this.property.isAdmin);
+    if (this.property.isAdmin) {
+      new PropertyTasks('tasksContainer', this.property.id);
+    }
 
     // Initialize calendar sync if not editing
     if (!this.isEditing && this.property.calendar_url) {

@@ -16,36 +16,42 @@ export class RoomSelect {
   async initialize() {
     try {
       this.rooms = await this.roomService.getRooms(this.propertyId);
-      this.isSharedAccess = this.roomService.isSharedAccess;
-      console.debug('RoomSelect: Initialized with rooms', {
+      console.debug('RoomSelect: Got rooms from service', {
         count: this.rooms.length,
-        rooms: this.rooms.map(r => r.name),
-        isSharedAccess: this.isSharedAccess
+        rooms: this.rooms.map(r => ({ id: r.id, name: r.name }))
       });
+      this.isSharedAccess = this.roomService.isSharedAccess;
       this.render();
       this.attachEventListeners();
+      
+      // If we have a pending room name, set it after initialization
+      if (this.pendingRoomName) {
+        console.debug('RoomSelect: Setting pending room name', { name: this.pendingRoomName });
+        this.setValue(this.pendingRoomName);
+        this.pendingRoomName = null;
+      }
     } catch (error) {
       console.error('Error loading rooms:', error);
       this.showError();
     }
   }
 
-  render() {
-    if (this.container.querySelector('#location')) {
-      // If input exists, just update datalist
-      const datalist = this.container.querySelector('#roomSuggestions');
-      if (datalist) {
-        datalist.innerHTML = this.rooms.map(room => `<option value="${room.name}">`).join('');
-      }
-      return;
+  reset() {
+    const input = this.container.querySelector('#location');
+    if (input) {
+      input.value = '';
+      // Clear any pending room changes
+      this.container.dispatchEvent(new CustomEvent('roomchange', { 
+        detail: { room: null } 
+      }));
     }
+  }
+
+  render() {
+    const currentValue = this.container.querySelector('#location')?.value;
 
     this.container.innerHTML = `
       <div class="mb-3">
-        <label for="location" class="form-label d-flex align-items-center gap-2">
-          ${IconService.createIcon('MapPin')}
-          Location Found
-        </label>
         <div class="position-relative">
           <input
             type="text"
@@ -56,6 +62,7 @@ export class RoomSelect {
             required
             autocomplete="off"
             spellcheck="false"
+            value="${currentValue || ''}"
           />
           <datalist id="roomSuggestions"></datalist>
           <div class="invalid-feedback">
@@ -120,9 +127,7 @@ export class RoomSelect {
     modal.querySelector('[data-dismiss="modal"]').addEventListener('click', () => {
       closeModal();
       // Clear the input
-      const input = this.container.querySelector('#location');
-      input.value = '';
-      input.focus();
+      this.reset();
     });
   }
 
@@ -157,31 +162,36 @@ export class RoomSelect {
           // Show confirmation modal for new room
           this.showConfirmationModal(value);
         }
-
       } catch (error) {
         console.error('RoomSelect: Error handling room:', error);
         input.value = ''; // Clear invalid input
         input.focus();
-        throw error; // Let the form handle the error
+        throw error;
       } finally {
         isProcessing = false;
       }
     };
 
-    // Handle datalist selection
-    const handleInput = (e) => {
-      if (e.inputType === 'insertReplacementText') {
-        handleRoomChange(e);
+    // Handle datalist selection and input events
+    const events = ['blur', 'change'];
+    events.forEach(eventType => {
+      input.addEventListener(eventType, handleRoomChange);
+    });
+
+    input.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      const existingRoom = this.rooms.find(room => 
+        room.name.toLowerCase() === value.toLowerCase()
+      );
+      
+      if (existingRoom) {
+        input.value = existingRoom.name;
+        const event = new CustomEvent('roomchange', { 
+          detail: { room: existingRoom } 
+        });
+        this.container.dispatchEvent(event);
       }
-    };
-    
-    // Clean up old listeners
-    const newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    
-    // Add listeners to fresh input
-    newInput.addEventListener('blur', handleRoomChange);
-    newInput.addEventListener('input', handleInput);
+    });
   }
 
   showError() {
@@ -208,7 +218,42 @@ export class RoomSelect {
   }
 
   getValue() {
-    return this.container.querySelector('#location').value.trim();
+    return this.container.querySelector('#location')?.value.trim() || '';
+  }
+
+  setValue(value) {
+    const input = this.container.querySelector('#location');
+    if (!value) return;
+
+    // If rooms aren't loaded yet, store the value to set later
+    if (!this.rooms.length) {
+      console.debug('RoomSelect: Storing pending room name', { value });
+      this.pendingRoomName = value;
+      return;
+    }
+
+    console.debug('RoomSelect: Setting value', { value });
+
+    if (input && value) {
+      // Find matching room
+      const room = this.rooms.find(r => r.name.toLowerCase() === value.toLowerCase());
+      
+      console.debug('RoomSelect: Found matching room', { 
+        value,
+        room: room ? { id: room.id, name: room.name } : null
+      });
+
+      // Set value and trigger change
+      input.value = value;
+      
+      // Emit room change event if room found
+      if (room) {
+        console.debug('RoomSelect: Emitting room change event', { room: { id: room.id, name: room.name } });
+        this.container.dispatchEvent(new CustomEvent('roomchange', { 
+          detail: { room } 
+        }));
+      }
+    }
   }
   
   async getRooms() {
