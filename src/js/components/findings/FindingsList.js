@@ -30,7 +30,6 @@ export class FindingsList {
 
     this.findings = [];
     this.statusFilter = null;
-    this.viewMode = 'grid'; // Add view mode state
     this.pollingInterval = null;
     this.statusSubscription = null;
     this.initialize();
@@ -47,68 +46,8 @@ export class FindingsList {
       this.findings = await this.findingsService.getFindings(this.changeoverId);
       console.debug('FindingsList: Initial findings loaded', { count: this.findings.length });
 
-      // Clean up any existing subscription
-      if (this.statusSubscription) {
-        console.debug('FindingsList: Cleaning up existing subscription');
-        await this.statusSubscription.unsubscribe();
-        this.statusSubscription = null;
-      }
-      //Tony Code
-      console.debug("Executing Tony Code")
       // Subscribe to status changes
       const channelName = `public:changeovers:id=eq.${this.changeoverId}`;
-      this.statusSubscription = supabase
-        .channel(channelName)
-        .on('postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'changeovers',
-            filter: `id=eq.${this.changeoverId}`,
-            properties: ['status']
-          },
-          (payload) => {
-            console.debug('FindingsList: Status change detected', {
-              changeoverId: this.changeoverId,
-              oldStatus: payload.old.status,
-              newStatus: payload.new.status
-            });
-
-            // Start/stop polling based on new status
-            if (payload.new.status === 'in_progress') {
-              console.debug('FindingsList: Starting polling due to status change');
-              this.startPolling();
-            } else {
-              console.debug('FindingsList: Stopping polling due to status change');
-              this.stopPolling();
-            }
-          }
-        )
-        .subscribe();
-
-
-      //End of Tony Code
-
-      
-      // Get initial status and subscribe to changes
-      const { data: changeover } = await supabase
-        .from('changeovers')
-        .select('status')
-        .eq('id', this.changeoverId)
-        .single();
-
-      console.debug('FindingsList: Changeover status check', { 
-        status: changeover?.status,
-        willStartPolling: changeover?.status === 'in_progress'
-      });
-
-      // Start polling if initially in progress
-      if (changeover?.status === 'in_progress') {
-        this.startPolling();
-      }
-
-      // Subscribe to status changes
-     // const channelName = `public:changeovers:id=eq.${this.changeoverId}`;
       this.statusSubscription = supabase
         .channel(channelName)
         .on('postgres_changes',
@@ -208,15 +147,7 @@ export class FindingsList {
   render() {
     const content = {
       headerContent: `
-        <div class="d-flex align-items-center gap-3" onclick="event.stopPropagation()">
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary ${this.viewMode === 'grid' ? 'active' : ''}" id="gridViewBtn">
-              ${IconService.createIcon('Grid')}
-            </button>
-            <button class="btn btn-outline-secondary ${this.viewMode === 'list' ? 'active' : ''}" id="listViewBtn">
-              ${IconService.createIcon('List')}
-            </button>
-          </div>
+        <div class="d-flex align-items-center gap-3 justify-content-between flex-wrap">
           <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
@@ -225,6 +156,14 @@ export class FindingsList {
             <option value="wont_fix">Won't Fix</option>
             <option value="fixed">Fixed</option>
           </select>
+          <div class="btn-group">
+            <button type="button" class="btn btn-sm view-toggle" data-view="list" title="List View">
+              ${IconService.createIcon('List', { width: '16', height: '16' })}
+            </button>
+            <button type="button" class="btn btn-sm view-toggle" data-view="grid" title="Grid View">
+              ${IconService.createIcon('Grid', { width: '16', height: '16' })}
+            </button>
+          </div>
         </div>
       `,
       body: this.renderFindingsList()
@@ -237,8 +176,20 @@ export class FindingsList {
       isCollapsed: CollapsibleSection.getStoredState('findings')
     });
 
+    // Set initial view
+    this.currentView = localStorage.getItem('findings-view') || 'list';
+    this.setActiveView(this.currentView);
+
     CollapsibleSection.attachEventListeners(this.container);
     this.attachEventListeners();
+  }
+
+  setActiveView(view) {
+    this.container.querySelectorAll('.view-toggle').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+      btn.classList.toggle('btn-outline-secondary', btn.dataset.view !== view);
+      btn.classList.toggle('btn-primary', btn.dataset.view === view);
+    });
   }
 
   renderFindingsList() {
@@ -250,30 +201,16 @@ export class FindingsList {
       return `
         <div class="card-body">
           <div class="alert alert-info mb-0">
-            ${this.findings.length ? 'No findings match the selected filter.' : 'No findings reported yet.'}
+            ${this.findings.length ? 'No findings match the selected filter.' : 'No findings have been reported yet.'}
           </div>
         </div>
       `;
     }
-
-    return this.viewMode === 'grid' ? 
-      this.renderGridView(filteredFindings) : 
-      this.renderListView(filteredFindings);
+    
+    return this.currentView === 'list' ? this.renderListView(filteredFindings) : this.renderGridView(filteredFindings);
   }
 
-  renderGridView(findings) {
-    return `
-      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        ${findings.map(finding => `
-          <div class="col finding-item" data-finding-id="${finding.id}">
-            ${FindingCard.render(finding)}
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }
-
-  renderListView(findings) {
+  renderListView(filteredFindings) {
     return `
       <div class="table-responsive">
         <table class="table table-hover">
@@ -281,29 +218,20 @@ export class FindingsList {
             <tr>
               <th>Status</th>
               <th>Description</th>
+              <th>Property</th>
               <th>Location</th>
               <th>Item</th>
               <th>Date Found</th>
             </tr>
           </thead>
           <tbody>
-            ${findings.map(finding => `
+            ${filteredFindings.map(finding => `
               <tr class="finding-item" data-finding-id="${finding.id}" style="cursor: pointer">
                 <td>${StatusBadge.render(finding.status)}</td>
                 <td>
-                  <div class="d-flex align-items-center gap-2">
-                    ${finding.images?.length ? `
-                      <div style="width: 40px; height: 40px; flex-shrink: 0">
-                        ${renderMediaThumbnail({ 
-                          url: finding.images[0]?.url || finding.images[0], 
-                          size: 'small',
-                          showPlayIcon: isVideo(finding.images[0]?.url || finding.images[0])
-                        })}
-                      </div>
-                    ` : ''}
-                    <span>${finding.description}</span>
-                  </div>
+                  ${finding.description}
                 </td>
+                <td>${finding.changeover?.property?.name || '-'}</td>
                 <td>${finding.location}</td>
                 <td>${finding.content_item ? finding.content_item.name : '-'}</td>
                 <td>${formatDate(finding.date_found)}</td>
@@ -315,24 +243,19 @@ export class FindingsList {
     `;
   }
 
+  renderGridView(filteredFindings) {
+    return `
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        ${filteredFindings.map(finding => `
+          <div class="col finding-item" data-finding-id="${finding.id}">
+            ${FindingCard.render(finding)}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
 
   attachEventListeners() {
-    // View toggle buttons
-    const gridViewBtn = this.container.querySelector('#gridViewBtn');
-    const listViewBtn = this.container.querySelector('#listViewBtn');
-
-    if (gridViewBtn && listViewBtn) {
-      gridViewBtn.addEventListener('click', () => {
-        this.viewMode = 'grid';
-        this.render();
-      });
-
-      listViewBtn.addEventListener('click', () => {
-        this.viewMode = 'list';
-        this.render();
-      });
-    }
-
     // Status filter
     const statusFilter = this.container.querySelector('#statusFilter');
     if (statusFilter) {
@@ -354,6 +277,17 @@ export class FindingsList {
         }
       });
     }
+
+    // View toggle
+    this.container.querySelectorAll('.view-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const view = btn.dataset.view;
+        console.debug('FindingsList: View toggle clicked', { view });
+        localStorage.setItem('findings-view', view);
+        this.currentView = view;
+        this.render();
+      });
+    });
 
     this.container.querySelectorAll('.finding-item').forEach(item => {
       item.addEventListener('click', () => {

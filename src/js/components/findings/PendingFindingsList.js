@@ -2,6 +2,7 @@ import { IconService } from '../../services/IconService.js';
 import { formatDate } from '../../utils/dateUtils.js';
 import { FindingModal } from './FindingModal.js';
 import { LoadingSpinner } from '../ui/LoadingSpinner.js';
+import { StatusBadge } from '../ui/StatusBadge.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { CollapsibleSection } from '../ui/CollapsibleSection.js';
 import { CollapsibleList } from '../ui/CollapsibleList.js';
@@ -27,7 +28,10 @@ export class PendingFindingsList {
   async initialize() {
     try {
       this.showLoading();
-      this.findings = await this.findingsService.getOpenFindings();
+      // Set initial view before loading data
+      this.currentView = localStorage.getItem('findings-view') || 'grid';
+      
+      this.findings = await this.findingsService.getOpenFindings() || [];
       this.applyPropertyFilter();
       
       // Only render if we have findings
@@ -37,10 +41,12 @@ export class PendingFindingsList {
       } else {
         this.container.style.display = 'none';
       }
+      return true;
     } catch (error) {
       console.error('Error loading pending findings:', error);
       // Hide the section on error
       this.container.style.display = 'none';
+      return false;
     }
   }
 
@@ -70,12 +76,19 @@ export class PendingFindingsList {
 
   render() {
     const content = {
-      body: CollapsibleList.render({
-        items: this.filteredFindings,
-        renderItem: (finding) => this.renderFindingItem(finding),
-        emptyMessage: 'No findings need attention',
-        showMoreText: 'Show More Findings'
-      })
+      headerContent: `
+        <div class="d-flex align-items-center gap-2 justify-content-between flex-wrap">
+          <div class="btn-group">
+            <button type="button" class="btn btn-sm view-toggle ${this.currentView === 'list' ? 'active btn-primary' : 'btn-outline-secondary'}" data-view="list" title="List View">
+              ${IconService.createIcon('List', { width: '16', height: '16' })}
+            </button>
+            <button type="button" class="btn btn-sm view-toggle ${this.currentView === 'grid' ? 'active btn-primary' : 'btn-outline-secondary'}" data-view="grid" title="Grid View">
+              ${IconService.createIcon('Grid', { width: '16', height: '16' })}
+            </button>
+          </div>
+        </div>
+      `,
+      body: this.renderFindingsList()
     };
 
     this.container.innerHTML = CollapsibleSection.render({
@@ -88,47 +101,67 @@ export class PendingFindingsList {
 
     CollapsibleSection.attachEventListeners(this.container);
     CollapsibleList.attachEventListeners(this.container);
+    
     this.attachEventListeners();
   }
 
-  renderFindingItem(finding) {
-    const hasImages = Array.isArray(finding.images) && finding.images.length > 0;
-    const mainImage = hasImages ? (finding.images[0]?.url || finding.images[0]) : null;
-    const hasMultipleImages = hasImages && finding.images.length > 1;
-    const contentItem = finding.content_item || null;
-
-    return `
-      <div class="list-group-item finding-item mb-2" data-finding-id="${finding.id}" style="cursor: pointer">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <h6 class="mb-1">${finding.description}</h6>
-        
-            <p class="mb-1 text-muted small">
-              ${IconService.createIcon('MapPin', { width: '14', height: '14' })} 
-              ${contentItem ? `${contentItem.name} in ` : ''}${finding.location} at ${finding.changeover?.property?.name || 'Unknown Property'}
-            </p>
-            <small class="text-muted d-flex align-items-center gap-1">
-              ${IconService.createIcon('Clock', { width: '14', height: '14' })}
-              Found ${formatDate(finding.date_found)}
-            </small>
-          </div>
-          <div class="position-relative">
-            ${hasImages ? `
-              ${renderMediaThumbnail({ url: mainImage, size: 'small' })}
-              ${hasMultipleImages ? `
-                <span class="position-absolute top-0 end-0 badge bg-dark bg-opacity-75" 
-                      style="transform: translate(25%, -25%)">
-                  +${finding.images.length - 1}
-                </span>
-              ` : ''}
-            ` : `
-              <div class="rounded bg-light d-flex align-items-center justify-content-center" 
-                   style="width: 60px; height: 60px">
-                ${IconService.createIcon('Image', { width: '24', height: '24', class: 'text-muted opacity-25' })}
-              </div>
-            `}
+  renderFindingsList() {
+    if (!this.filteredFindings?.length) {
+      return `
+        <div class="card-body">
+          <div class="alert alert-info mb-0">
+            ${this.findings.length ? 'No findings match the selected filter.' : 'No findings need attention.'}
           </div>
         </div>
+      `;
+    }
+
+    return this.currentView === 'list' ? this.renderListView(this.filteredFindings) : this.renderGridView(this.filteredFindings);
+  }
+
+  renderListView(filteredFindings) {
+    return `
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Description</th>
+              <th>Property</th>
+              <th>Location</th>
+              <th>Item</th>
+              <th>Date Found</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredFindings.map(finding => `
+              <tr class="finding-item" data-finding-id="${finding.id}" style="cursor: pointer">
+                <td>${StatusBadge.render(finding.status)}</td>
+                <td>
+                  ${finding.description}
+                </td>
+                <td>${finding.changeover?.property?.name || '-'}</td>
+                <td>${finding.location}</td>
+                <td>${finding.content_item ? finding.content_item.name : '-'}</td>
+                <td>${formatDate(finding.date_found)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  renderGridView(filteredFindings) {
+    return `
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        ${filteredFindings.map(finding => `
+          <div class="col finding-item" data-finding-id="${finding.id}">
+            <div class="card h-100">
+              ${this.renderFindingCard(finding)}
+            </div>
+          </div>
+        `).join('')}
       </div>
     `;
   }
@@ -147,6 +180,18 @@ export class PendingFindingsList {
             async (findingId, text) => this.handleAddNote(findingId, text)
           );
         }
+      });
+    });
+
+    // View toggle
+    this.container.querySelectorAll('.view-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const view = btn.dataset.view;
+        localStorage.setItem('findings-view', view);
+        console.debug('PendingFindingsList: View changed', { view });
+        this.currentView = view;
+        this.render();
       });
     });
   }
@@ -170,6 +215,32 @@ export class PendingFindingsList {
       console.error('Error adding note:', error);
       showErrorAlert('Failed to add note. Please try again.');
     }
+  }
+
+  renderFindingCard(finding) {
+    return `
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          ${StatusBadge.render(finding.status)}
+          <small class="text-muted">${formatDate(finding.date_found)}</small>
+        </div>
+        <p class="card-text">${finding.description}</p>
+        <p class="card-text text-muted d-flex align-items-center gap-1">
+          ${IconService.createIcon('Building', { width: '16', height: '16' })}
+          ${finding.changeover?.property?.name || '-'}
+        </p>
+        <p class="card-text text-muted d-flex align-items-center gap-1">
+          ${IconService.createIcon('MapPin', { width: '16', height: '16' })}
+          ${finding.location}
+        </p>
+        ${finding.content_item ? `
+          <p class="card-text text-muted d-flex align-items-center gap-1">
+            ${IconService.createIcon('Sofa', { width: '16', height: '16' })}
+            ${finding.content_item.name}
+          </p>
+        ` : ''}
+      </div>
+    `;
   }
 
   refresh() {

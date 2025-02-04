@@ -139,7 +139,10 @@ export class FindingsService {
   async getOpenFindings() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return []; // Return empty array if not authenticated
+      if (!user) {
+        console.debug('FindingsService: No authenticated user');
+        return []; 
+      }
 
       const { data, error } = await supabase
         .from('findings')
@@ -164,16 +167,27 @@ export class FindingsService {
         .in('status', ['open', 'blocked'])
         .order('date_found', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('FindingsService: Error fetching open findings:', error);
+        throw error;
+      }
 
       // Filter findings to only show those where user is owner
-      return (data || []).filter(finding => {
+      const filteredFindings = (data || []).filter(finding => {
         const property = finding.changeover?.property;
         if (!property) return false;
 
         return property.created_by === user.id;
       });
+      
+      console.debug('FindingsService: Filtered findings', {
+        total: data?.length || 0,
+        filtered: filteredFindings.length
+      });
+      
+      return filteredFindings;
     } catch (error) {
+      console.error('FindingsService: Error in getOpenFindings:', error);
       throw handleSupabaseError(error, 'Failed to load pending findings');
     }
   }

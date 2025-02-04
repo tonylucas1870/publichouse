@@ -35,7 +35,7 @@ export function getContentType(fileOrUrl) {
  */
 export function renderMediaThumbnail({ url, size = 'medium', showPlayIcon = true }) {
   const type = getContentType(url);
-  const dimensions = size === 'small' ? 'width: 60px; height: 60px' : 
+  const dimensions = size === 'small' ? 'height: 1.2em; width: auto' : 
                     size === 'medium' ? 'width: 100px; height: 100px' :
                     'width: 200px; height: 200px';
 
@@ -43,7 +43,7 @@ export function renderMediaThumbnail({ url, size = 'medium', showPlayIcon = true
     return `
       <div class="rounded bg-light d-flex align-items-center justify-content-center" 
            style="${dimensions}">
-        ${showPlayIcon ? '<i class="fas fa-play-circle fa-2x text-muted"></i>' : ''}
+        ${showPlayIcon ? '<i class="fas fa-play-circle text-muted"></i>' : ''}
       </div>
     `;
   }
@@ -52,6 +52,6 @@ export function renderMediaThumbnail({ url, size = 'medium', showPlayIcon = true
     <img src="${url}" 
          alt="Media thumbnail" 
          class="rounded" 
-         style="${dimensions}; object-fit: cover">
+         style="${dimensions}; object-fit: ${size === 'small' ? 'contain' : 'cover'}">
   `;
 }
