@@ -1,9 +1,9 @@
-import { FindingCard } from './FindingCard.js';
-import { LoadingSpinner } from '../ui/LoadingSpinner.js';
-import { ErrorDisplay } from '../ui/ErrorDisplay.js';
-import { CollapsibleSection } from '../ui/CollapsibleSection.js';
-import { FindingModal } from './FindingModal.js';
-import { showErrorAlert } from '../../utils/alertUtils.js';
+import { FindingCard } from './FindingCard';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { ErrorDisplay } from '../ui/ErrorDisplay';
+import { CollapsibleSection } from '../ui/CollapsibleSection';
+import { FindingModal } from './FindingModal';
+import { showErrorAlert } from '../../utils/alertUtils';
 
 export class FindingsList {
   constructor(containerId, findingsService, changeoverId) {
@@ -23,6 +23,7 @@ export class FindingsList {
     }
 
     this.findings = [];
+    this.statusFilter = null;
     this.initialize();
   }
 
@@ -47,6 +48,18 @@ export class FindingsList {
 
   render() {
     const content = {
+      headerContent: `
+        <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation()">
+          <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="open">Open</option>
+            <option value="blocked">Blocked</option>
+            <option value="wont_fix">Won't Fix</option>
+            <option value="fixed">Fixed</option>
+          </select>
+        </div>
+      `,
       body: this.renderFindingsList()
     };
 
@@ -62,11 +75,15 @@ export class FindingsList {
   }
 
   renderFindingsList() {
-    if (!this.findings?.length) {
+    const filteredFindings = this.statusFilter
+      ? this.findings.filter(f => f.status === this.statusFilter)
+      : this.findings;
+
+    if (!filteredFindings?.length) {
       return `
         <div class="card-body">
           <div class="alert alert-info mb-0">
-            No findings reported yet.
+            ${this.findings.length ? 'No findings match the selected filter.' : 'No findings reported yet.'}
           </div>
         </div>
       `;
@@ -74,7 +91,7 @@ export class FindingsList {
 
     return `
       <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        ${this.findings.map(finding => `
+        ${filteredFindings.map(finding => `
           <div class="col finding-item" data-finding-id="${finding.id}">
             ${FindingCard.render(finding)}
           </div>
@@ -84,6 +101,28 @@ export class FindingsList {
   }
 
   attachEventListeners() {
+    // Status filter
+    const statusFilter = this.container.querySelector('#statusFilter');
+    if (statusFilter) {
+      // Prevent click propagation
+      statusFilter.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      
+      // Handle change event
+      statusFilter.addEventListener('change', (e) => {
+        e.stopPropagation();
+        this.statusFilter = e.target.value || null;
+        this.render();
+        
+        // Maintain filter value after render
+        const newFilter = this.container.querySelector('#statusFilter');
+        if (newFilter) {
+          newFilter.value = this.statusFilter || '';
+        }
+      });
+    }
+
     this.container.querySelectorAll('.finding-item').forEach(item => {
       item.addEventListener('click', () => {
         const findingId = item.dataset.findingId;
