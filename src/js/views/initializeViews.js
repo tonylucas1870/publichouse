@@ -33,7 +33,7 @@ export async function initializeViews(services) {
     const settings = params.get('settings');
 
     // Handle unauthenticated state
-    if (!authStore.isAuthenticated() && !shareToken) {
+    if (!authStore.isAuthenticated() && !shareToken && !findingToken) {
       elements.propertyList.style.display = 'block';
       elements.propertyList.innerHTML = `
         <div class="text-center p-4">
@@ -46,6 +46,7 @@ export async function initializeViews(services) {
     // Initialize appropriate view based on URL parameters
     try {
       if (findingToken) {
+        // Show shared finding
         // Show shared finding
         const finding = await services.findings.getFindingByShareToken(findingToken);
         if (!finding) throw new Error('Invalid finding share token');

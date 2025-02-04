@@ -281,6 +281,8 @@ export class FindingsService {
 
   async getFindingByShareToken(token) {
     try {
+      console.debug('FindingsService: Getting finding by token', { token });
+
       if (!token) {
         throw new Error('Share token is required');
       }
@@ -308,13 +310,19 @@ export class FindingsService {
         .eq('share_token', token)
         .single();
 
+      console.debug('FindingsService: Finding lookup result', {
+        success: !!data && !error,
+        error,
+        findingId: data?.id
+      });
+
       if (error) throw error;
       if (!data) throw new Error('Finding not found');
 
       return data;
     } catch (error) {
       console.error('FindingsService: Error getting finding by token', error);
-      throw handleSupabaseError(error, 'Failed to load finding');
+      throw handleSupabaseError(error, 'Invalid or expired share token');
     }
   }
 
