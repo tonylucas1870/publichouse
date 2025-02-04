@@ -279,6 +279,90 @@ export class FindingsService {
     }
   }
 
+  async getFindingByShareToken(token) {
+    try {
+      if (!token) {
+        throw new Error('Share token is required');
+      }
+
+      const { data, error } = await supabase
+        .from('findings')
+        .select(`
+          id,
+          description,
+          location,
+          images,
+          date_found,
+          status,
+          notes,
+          content_item,
+          share_token,
+          changeover:changeovers (
+            id,
+            property:properties (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('share_token', token)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('Finding not found');
+
+      return data;
+    } catch (error) {
+      console.error('FindingsService: Error getting finding by token', error);
+      throw handleSupabaseError(error, 'Failed to load finding');
+    }
+  }
+
+  async createShareLink(findingId) {
+    try {
+      const { data, error } = await supabase
+        .rpc('create_finding_share_link', {
+          finding_id: findingId
+        });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw handleSupabaseError(error, 'Failed to create share link');
+    }
+  }
+
+  async getFindingByShareToken(token) {
+    try {
+      const { data, error } = await supabase
+        .from('findings')
+        .select(`
+          id,
+          description,
+          location,
+          images,
+          date_found,
+          status,
+          notes,
+          content_item,
+          changeover:changeovers (
+            id,
+            property:properties (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('share_token', token)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw handleSupabaseError(error, 'Failed to load finding');
+    }
+  }
+
   async updateImages(findingId, images) {
     try {
       const { error } = await supabase

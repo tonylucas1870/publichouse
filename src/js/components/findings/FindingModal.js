@@ -28,6 +28,15 @@ export class FindingModal {
         <div class="row g-4">
           <!-- Image Column -->
           <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0">Images</h6>
+              ${isEditable ? `
+                <button class="btn btn-outline-primary btn-sm" id="shareFindingBtn">
+                  ${IconService.createIcon('Share2')}
+                  Share Finding
+                </button>
+              ` : ''}
+            </div>
             ${this.renderImageCarousel(images)}
             ${isEditable ? `
               <div class="mt-3">
@@ -98,6 +107,27 @@ export class FindingModal {
     // Initialize carousel if we have multiple images
     if (images.length > 1) {
       this.initializeCarousel(modal, images);
+    }
+    
+    // Attach share button handler
+    const shareBtn = modal.querySelector('#shareFindingBtn');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', async () => {
+        try {
+          // Get share token
+          const shareToken = await findingsService.createShareLink(finding.id);
+          
+          // Create share URL
+          const shareUrl = `${window.location.origin}/?finding=${shareToken}`;
+          
+          // Copy to clipboard
+          await navigator.clipboard.writeText(shareUrl);
+          showErrorAlert('Share link copied to clipboard', 'success');
+        } catch (error) {
+          console.error('Error sharing finding:', error);
+          showErrorAlert('Failed to create share link');
+        }
+      });
     }
 
     // Attach photo upload handler

@@ -27,6 +27,7 @@ export async function initializeViews(services) {
     const params = new URLSearchParams(window.location.search);
     const changeoverId = params.get('changeover');
     const shareToken = params.get('token');
+    const findingToken = params.get('finding');
     const propertyId = params.get('property');
     const subscription = params.get('subscription');
     const settings = params.get('settings');
@@ -44,7 +45,19 @@ export async function initializeViews(services) {
 
     // Initialize appropriate view based on URL parameters
     try {
-      if (shareToken) {
+      if (findingToken) {
+        // Show shared finding
+        const finding = await services.findings.getFindingByShareToken(findingToken);
+        if (!finding) throw new Error('Invalid finding share token');
+        
+        elements.findingsView.style.display = 'block';
+        FindingModal.show(
+          finding, 
+          services.findings,
+          null, // No status updates for shared findings
+          async (findingId, text) => services.findings.addNote(findingId, text)
+        );
+      } else if (shareToken) {
         // Always use sharedView for share token URLs
         await initializeSharedView({
           auth: authStore,
