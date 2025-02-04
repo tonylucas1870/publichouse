@@ -43,7 +43,7 @@ export class CalendarSync {
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             Syncing...
           ` : `
-            ${IconService.createIcon('Refresh')}
+            ${IconService.createIcon('Sync')}
             Sync Now
           `}
         </button>

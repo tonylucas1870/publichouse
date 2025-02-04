@@ -57,7 +57,7 @@ export class AuthHeader {
         </button>
         <button class="btn btn-outline-primary" id="subscriptionBtn">
           ${IconService.createIcon('CreditCard')}
-          Subscription
+          <span class="ms-1">Subscription</span>
         </button>
       `;
       

@@ -7,8 +7,9 @@ export class IconService {
     const iconMap = {
       // Navigation and actions
       ArrowLeft: 'fa-arrow-left',
-      Calendar: 'fa-calendar',
+     Calendar: 'fa-calendar-alt',
       Camera: 'fa-camera',
+     CreditCard: 'fa-credit-card',
       Check: 'fa-check',
       Clock: 'fa-clock',
       Edit: 'fa-pen',
@@ -29,6 +30,8 @@ export class IconService {
       Search: 'fa-search',
       ChevronUp: 'fa-chevron-up',
       ChevronDown: 'fa-chevron-down',
+     Sync: 'fa-sync',
+     ListChecks: 'fa-tasks',
 
       // Property and room management
       Building: 'fa-building',

@@ -73,14 +73,13 @@ export class FindingModal {
             ${finding.content_item ? `
               <div class="mb-3">
                 <label class="form-label d-flex align-items-center gap-2">
-                  ${IconService.createIcon('Package')}
+                  ${IconService.createIcon('Sofa')}
                   Item
                 </label>
                 <div class="form-control-plaintext">
                   <a href="#" class="text-decoration-none d-inline-flex align-items-center gap-2 view-content-item" 
                      data-item='${JSON.stringify(finding.content_item)}'>
                     ${finding.content_item.name}
-                    ${IconService.createIcon('ExternalLink', { width: '14', height: '14' })}
                   </a>
                 </div>
               </div>
