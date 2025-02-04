@@ -6,6 +6,7 @@ import { initializeChangeoverView } from './changeoverView.js';
 import { initializeSharedView } from './sharedView.js';
 import { initializeSettingsView } from './settingsView.js';
 import { initializeSubscriptionView } from './subscriptionView.js';
+import { FindingModal } from '../components/findings/FindingModal.js';
 import { authStore } from '../auth/AuthStore.js';
 import { showErrorAlert } from '../utils/alertUtils.js';
 
@@ -46,7 +47,6 @@ export async function initializeViews(services) {
     // Initialize appropriate view based on URL parameters
     try {
       if (findingToken) {
-        // Show shared finding
         // Show shared finding
         const finding = await services.findings.getFindingByShareToken(findingToken);
         if (!finding) throw new Error('Invalid finding share token');
