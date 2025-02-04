@@ -12,6 +12,8 @@
     - RLS policy allows read-only access via share token
 */
 
+
+
 -- Add share token column to findings
 ALTER TABLE findings
 ADD COLUMN share_token text DEFAULT encode(gen_random_bytes(32), 'hex');
@@ -27,6 +29,7 @@ LANGUAGE sql
 AS $$
   SELECT encode(gen_random_bytes(32), 'hex');
 $$;
+
 
 -- Update RLS policies to allow access via share token
 CREATE POLICY "Anyone with share token can view finding"

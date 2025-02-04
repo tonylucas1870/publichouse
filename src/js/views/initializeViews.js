@@ -28,10 +28,10 @@ export async function initializeViews(services) {
     const params = new URLSearchParams(window.location.search);
     const changeoverId = params.get('changeover');
     const shareToken = params.get('token');
-    const findingToken = params.get('finding');
     const propertyId = params.get('property');
     const subscription = params.get('subscription');
     const settings = params.get('settings');
+    const findingToken = params.get('finding');
 
     // Handle unauthenticated state
     if (!authStore.isAuthenticated() && !shareToken && !findingToken) {
@@ -48,16 +48,33 @@ export async function initializeViews(services) {
     try {
       if (findingToken) {
         // Show shared finding
-        const finding = await services.findings.getFindingByShareToken(findingToken);
-        if (!finding) throw new Error('Invalid finding share token');
-        
-        elements.findingsView.style.display = 'block';
-        FindingModal.show(
-          finding, 
-          services.findings,
-          null, // No status updates for shared findings
-          async (findingId, text) => services.findings.addNote(findingId, text)
-        );
+        try {
+          const finding = await services.findings.getFindingByShareToken(findingToken);
+          if (!finding) throw new Error('Invalid finding share token');
+          
+          elements.findingsView.style.display = 'block';
+          FindingModal.show(
+            finding, 
+            services.findings,
+            null, // No status updates for shared findings
+            async (findingId, text) => services.findings.addNote(findingId, text)
+          );
+        } catch (error) {
+          // Show user-friendly error message
+          document.body.innerHTML = `
+            <div class="container py-5">
+              <div class="alert alert-danger">
+                <h4 class="alert-heading">Invalid Finding Link</h4>
+                <p>The finding you're trying to access is either invalid or has expired.</p>
+                <hr>
+                <p class="mb-0">
+                  <a href="/" class="alert-link">Return to Home</a>
+                </p>
+              </div>
+            </div>
+          `;
+          return;
+        }
       } else if (shareToken) {
         // Always use sharedView for share token URLs
         await initializeSharedView({
