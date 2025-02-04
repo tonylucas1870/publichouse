@@ -251,7 +251,8 @@ export class FindingsService {
       );
 
       console.debug('FindingsService: Images uploaded', {
-        uploadedCount: uploadedUrls.length
+        uploadedCount: uploadedUrls.length,
+        urls: uploadedUrls
       });
 
       const { data, error } = await supabase
@@ -263,10 +264,7 @@ export class FindingsService {
           anonymous_user_id: anonymousUserId,
           changeover_id: changeoverId,
           status: 'open',
-          images: uploadedUrls.map(({ publicUrl, uploadedAt }) => ({
-            url: publicUrl,
-            uploadedAt
-          })),
+          images: uploadedUrls.map(result => result.publicUrl),
           date_found: getCurrentDate(),
           notes: []
         })
