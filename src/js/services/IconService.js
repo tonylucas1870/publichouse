@@ -32,6 +32,8 @@ export class IconService {
       ChevronDown: 'fa-chevron-down',
      Sync: 'fa-sync',
      ListChecks: 'fa-tasks',
+      Grid: 'fa-th',
+      List: 'fa-list',
 
       // Property and room management
       Building: 'fa-building',

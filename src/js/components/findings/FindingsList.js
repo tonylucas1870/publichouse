@@ -1,6 +1,10 @@
 import { FindingCard } from './FindingCard.js';
 import { LoadingSpinner } from '../ui/LoadingSpinner.js';
 import { ErrorDisplay } from '../ui/ErrorDisplay.js';
+import { IconService } from '../../services/IconService.js';
+import { StatusBadge } from '../ui/StatusBadge.js';
+import { formatDate } from '../../utils/dateUtils.js';
+import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 import { CollapsibleSection } from '../ui/CollapsibleSection.js';
 import { FindingModal } from './FindingModal.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
@@ -26,6 +30,7 @@ export class FindingsList {
 
     this.findings = [];
     this.statusFilter = null;
+    this.viewMode = 'grid'; // Add view mode state
     this.pollingInterval = null;
     this.statusSubscription = null;
     this.initialize();
@@ -203,7 +208,15 @@ export class FindingsList {
   render() {
     const content = {
       headerContent: `
-        <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation()">
+        <div class="d-flex align-items-center gap-3" onclick="event.stopPropagation()">
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary ${this.viewMode === 'grid' ? 'active' : ''}" id="gridViewBtn">
+              ${IconService.createIcon('Grid')}
+            </button>
+            <button class="btn btn-outline-secondary ${this.viewMode === 'list' ? 'active' : ''}" id="listViewBtn">
+              ${IconService.createIcon('List')}
+            </button>
+          </div>
           <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
@@ -243,9 +256,15 @@ export class FindingsList {
       `;
     }
 
+    return this.viewMode === 'grid' ? 
+      this.renderGridView(filteredFindings) : 
+      this.renderListView(filteredFindings);
+  }
+
+  renderGridView(findings) {
     return `
       <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        ${filteredFindings.map(finding => `
+        ${findings.map(finding => `
           <div class="col finding-item" data-finding-id="${finding.id}">
             ${FindingCard.render(finding)}
           </div>
@@ -254,7 +273,66 @@ export class FindingsList {
     `;
   }
 
+  renderListView(findings) {
+    return `
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Description</th>
+              <th>Location</th>
+              <th>Item</th>
+              <th>Date Found</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${findings.map(finding => `
+              <tr class="finding-item" data-finding-id="${finding.id}" style="cursor: pointer">
+                <td>${StatusBadge.render(finding.status)}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    ${finding.images?.length ? `
+                      <div style="width: 40px; height: 40px; flex-shrink: 0">
+                        ${renderMediaThumbnail({ 
+                          url: finding.images[0]?.url || finding.images[0], 
+                          size: 'small',
+                          showPlayIcon: isVideo(finding.images[0]?.url || finding.images[0])
+                        })}
+                      </div>
+                    ` : ''}
+                    <span>${finding.description}</span>
+                  </div>
+                </td>
+                <td>${finding.location}</td>
+                <td>${finding.content_item ? finding.content_item.name : '-'}</td>
+                <td>${formatDate(finding.date_found)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+
   attachEventListeners() {
+    // View toggle buttons
+    const gridViewBtn = this.container.querySelector('#gridViewBtn');
+    const listViewBtn = this.container.querySelector('#listViewBtn');
+
+    if (gridViewBtn && listViewBtn) {
+      gridViewBtn.addEventListener('click', () => {
+        this.viewMode = 'grid';
+        this.render();
+      });
+
+      listViewBtn.addEventListener('click', () => {
+        this.viewMode = 'list';
+        this.render();
+      });
+    }
+
     // Status filter
     const statusFilter = this.container.querySelector('#statusFilter');
     if (statusFilter) {
