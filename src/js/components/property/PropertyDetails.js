@@ -5,7 +5,8 @@ import { PropertyUtilities } from './PropertyUtilities.js';
 import { PropertyHeader } from './PropertyHeader.js';
 import { PropertyForm } from './PropertyForm.js';
 import { PropertyAccess } from './PropertyAccess.js';
-import { PropertyTasks } from './PropertyTasks.js';
+import { TaskList } from './TaskList.js';
+import { PropertyTaskService } from '../../services/PropertyTaskService.js';
 import { CalendarSync } from './CalendarSync.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { Navigation } from '../ui/Navigation.js';
@@ -15,6 +16,7 @@ export class PropertyDetails {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
     this.propertyService = new PropertyService();
+    this.taskService = new PropertyTaskService();
     this.property = null;
     this.isEditing = false;
     
@@ -99,7 +101,7 @@ export class PropertyDetails {
       <div class="row g-4">
         <!-- Rooms -->
         <div class="col-12 col-lg-6">
-          <div class="card h-100">
+          <div class="card">
             <div class="card-header bg-transparent d-flex align-items-center gap-2">
               ${IconService.createIcon('DoorClosed')}
               <h3 class="h5 mb-0">Rooms</h3>
@@ -112,7 +114,7 @@ export class PropertyDetails {
 
         <!-- Utilities -->
         <div class="col-12 col-lg-6">
-          <div class="card h-100">
+          <div class="card">
             <div class="card-header bg-transparent d-flex align-items-center gap-2">
               ${IconService.createIcon('Zap')}
               <h3 class="h5 mb-0">Utilities</h3>
@@ -125,7 +127,15 @@ export class PropertyDetails {
 
         <!-- Tasks -->
         <div class="col-12">
-          <div id="tasksContainer" data-is-admin="${this.property.isAdmin || false}"></div>
+          <div class="card">
+            <div class="card-header bg-transparent d-flex align-items-center gap-2">
+              ${IconService.createIcon('ListChecks')}
+              <h3 class="h5 mb-0">Standard Tasks</h3>
+            </div>
+            <div class="card-body">
+              <div id="tasksContainer" data-is-admin="${this.property.isAdmin || false}"></div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -134,7 +144,8 @@ export class PropertyDetails {
     new RoomList('roomListContainer', this.property.id, this.property.isAdmin);
     new PropertyUtilities('utilitiesContainer', this.property.id, this.property.isAdmin);
     if (this.property.isAdmin) {
-      new PropertyTasks('tasksContainer', this.property.id);
+      const taskList = new TaskList('tasksContainer', this.property.id, this.taskService);
+      taskList.initialize();
     }
 
     // Initialize calendar sync if not editing
