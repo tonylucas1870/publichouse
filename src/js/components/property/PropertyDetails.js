@@ -84,7 +84,7 @@ export class PropertyDetails {
         ${Navigation.renderBackButton()}
       </div>
 
-      <!-- Property Details Card -->
+      <!-- Property Management Card -->
       <div class="card mb-4">
         <div class="card-body">
           ${this.isEditing && this.property.isAdmin ? 
@@ -97,10 +97,21 @@ export class PropertyDetails {
         </div>
       </div>
       
+      <!-- Tasks -->
+      <div class="card mb-4">
+        <div class="card-header bg-transparent d-flex align-items-center gap-2">
+          ${IconService.createIcon('ListChecks')}
+          <h3 class="h5 mb-0">Standard Tasks</h3>
+        </div>
+        <div class="card-body">
+          <div id="tasksContainer" data-is-admin="${this.property.isAdmin || false}"></div>
+        </div>
+      </div>
+      
       <!-- Main Content -->
-      <div class="row g-4">
+      <div class="row row-cols-1 row-cols-lg-2 g-4">
         <!-- Rooms -->
-        <div class="col-12 col-lg-6">
+        <div class="col">
           <div class="card">
             <div class="card-header bg-transparent d-flex align-items-center gap-2">
               ${IconService.createIcon('DoorClosed')}
@@ -113,7 +124,7 @@ export class PropertyDetails {
         </div>
 
         <!-- Utilities -->
-        <div class="col-12 col-lg-6">
+        <div class="col">
           <div class="card">
             <div class="card-header bg-transparent d-flex align-items-center gap-2">
               ${IconService.createIcon('Zap')}
@@ -121,19 +132,6 @@ export class PropertyDetails {
             </div>
             <div class="card-body">
               <div id="utilitiesContainer" data-is-admin="${this.property.isAdmin || false}"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tasks -->
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header bg-transparent d-flex align-items-center gap-2">
-              ${IconService.createIcon('ListChecks')}
-              <h3 class="h5 mb-0">Standard Tasks</h3>
-            </div>
-            <div class="card-body">
-              <div id="tasksContainer" data-is-admin="${this.property.isAdmin || false}"></div>
             </div>
           </div>
         </div>
