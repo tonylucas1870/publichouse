@@ -88,7 +88,6 @@ serve(async (req) => {
       determined: mimeType,
       filename: videoFile.name
     });
-    }
 
     console.debug('Analyzing video', {
       userId: user.id,

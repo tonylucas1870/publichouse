@@ -222,6 +222,12 @@ export class RoomSelect {
   }
 
   setValue(value) {
+    console.debug('RoomSelect: setValue called', {
+      value,
+      hasRooms: this.rooms.length > 0,
+      roomNames: this.rooms.map(r => r.name)
+    });
+
     const input = this.container.querySelector('#location');
     if (!value) return;
 
@@ -229,6 +235,7 @@ export class RoomSelect {
     if (!this.rooms.length) {
       console.debug('RoomSelect: Storing pending room name', { value });
       this.pendingRoomName = value;
+      console.warn('RoomSelect: Input element not found');
       return;
     }
 

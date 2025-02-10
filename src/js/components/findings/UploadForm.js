@@ -104,6 +104,11 @@ export class UploadForm {
     
     locationContainer?.addEventListener('roomchange', async (e) => {
       const room = e.detail.room;
+      console.debug('UploadForm: Room changed', {
+        room,
+        hasContentsSelect: !!this.contentsSelect
+      });
+
       if (!room) {
         if (contentsContainer) {
           contentsContainer.innerHTML = '';
@@ -115,7 +120,20 @@ export class UploadForm {
       try {
         // Initialize contents select
         const { ContentsSelect } = await import('../ui/ContentsSelect.js');
-        this.contentsSelect = new ContentsSelect('contentsContainer', room.id);
+        
+        // Create new ContentsSelect instance
+        const contentsSelect = new ContentsSelect('contentsContainer', room.id);
+        
+        // Wait for initialization to complete
+        await contentsSelect.initialize();
+        
+        // Store reference only after successful initialization
+        this.contentsSelect = contentsSelect;
+        
+        console.debug('UploadForm: ContentsSelect initialized', {
+          roomId: room.id,
+          hasContents: contentsSelect.contents.length > 0
+        });
       } catch (error) {
         console.error('Error loading room contents:', error);
         if (contentsContainer) {
@@ -315,31 +333,7 @@ export class UploadForm {
         analysis: result.analysis
       });
 
-      // Update form fields
-      const form = this.container.querySelector('#findingForm');
-      if (form) {
-        if (result.analysis.description) {
-          form.description.value = result.analysis.description;
-        }
-        
-        if (result.analysis.location) {
-          this.roomSelect.setValue(result.analysis.location);
-        }
-
-        if (result.analysis.contentItem) {
-          // Wait for content select to initialize
-          const checkInterval = setInterval(() => {
-            if (this.contentsSelect) {
-              clearInterval(checkInterval);
-              try {
-                this.contentsSelect.setValue(result.analysis.contentItem);
-              } catch (error) {
-                console.error('Error setting content item:', error);
-              }
-            }
-          }, 100);
-        }
-      }
+      await this.handleVideoAnalysis(result);
 
       this.updateAnalysisStatus('Analysis complete!', 'success');
     } catch (error) {
@@ -352,6 +346,98 @@ export class UploadForm {
       this.isAnalyzing = false;
       // Clear status after delay
       setTimeout(() => this.updateAnalysisStatus(''), 5000);
+    }
+  }
+
+  async handleVideoAnalysis(result) {
+    console.debug('UploadForm: Starting video analysis handling', {
+      hasTranscript: !!result.transcript,
+      hasAnalysis: !!result.analysis,
+      analysisFields: result.analysis ? Object.keys(result.analysis) : []
+    });
+
+    const form = this.container.querySelector('#findingForm');
+    if (form) {
+      if (result.analysis.description) {
+        form.description.value = result.analysis.description;
+      }
+      
+      // Store content item for later use
+      const pendingContentItem = result.analysis.contentItem;
+      
+      if (result.analysis.location) {
+        console.debug('UploadForm: Setting room with pending content', {
+          location: result.analysis.location,
+          contentItem: pendingContentItem,
+          hasRoomSelect: !!this.roomSelect,
+          hasLocationContainer: !!this.container.querySelector('#locationContainer')
+        });
+
+        // Add listener before setting room value
+        const handleRoomChange = async (e) => {
+          const room = e.detail.room;
+          console.debug('UploadForm: Room change event received', {
+            hasRoom: !!room,
+            roomId: room?.id,
+            pendingContentItem,
+            hasContentsSelect: !!this.contentsSelect
+          });
+
+          if (!room) return;
+
+          // Wait for ContentsSelect to be ready
+          const maxAttempts = 10;
+          const attemptDelay = 200;
+          let attempts = 0;
+
+          const trySetContentItem = async () => {
+            console.debug('UploadForm: Attempting to set content item', {
+              attempt: attempts + 1,
+              maxAttempts,
+              hasContentsSelect: !!this.contentsSelect,
+              isInitialized: this.contentsSelect?.isInitialized,
+              contentItem: pendingContentItem
+            });
+
+            if (this.contentsSelect?.isInitialized) {
+              try {
+                await this.contentsSelect.setValue(pendingContentItem);
+                console.debug('UploadForm: Content item set successfully');
+                return true;
+              } catch (error) {
+                console.error('Error setting content item:', error);
+              }
+            }
+
+            attempts++;
+            if (attempts < maxAttempts) {
+              console.debug('UploadForm: Retrying content item set', {
+                nextAttempt: attempts + 1,
+                delay: attemptDelay
+              });
+              await new Promise(resolve => setTimeout(resolve, attemptDelay));
+              return trySetContentItem();
+            }
+            console.warn('UploadForm: Failed to set content item after all attempts');
+            return false;
+          };
+
+          await trySetContentItem();
+        };
+
+        // Add listener with cleanup
+        const locationContainer = this.container.querySelector('#locationContainer');
+        console.debug('UploadForm: Adding room change listener', {
+          hasLocationContainer: !!locationContainer
+        });
+        locationContainer?.addEventListener('roomchange', handleRoomChange, { once: true });
+
+        // Set room value which will trigger the change
+        console.debug('UploadForm: Setting room value', {
+          location: result.analysis.location
+        });
+        this.roomSelect.setValue(result.analysis.location);
+      }
     }
   }
 

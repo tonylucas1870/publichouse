@@ -5,30 +5,190 @@ import { showErrorAlert } from '../../utils/alertUtils.js';
 
 export class ContentsSelect {
   constructor(containerId, roomId) {
+    console.debug('ContentsSelect: Constructor', { containerId, roomId });
     this.container = document.getElementById(containerId);
     this.roomId = roomId;
     this.roomDetailsService = new RoomDetailsService();
     this.contents = [];
-    this.initialize();
+    this.pendingValue = null;
+    this.isInitialized = false;
+    this.initializePromise = null;
+    this.retryAttempts = 0;
+    this.maxRetries = 10;
+    this.retryDelay = 200;
   }
 
   async initialize() {
     try {
-      const details = await this.roomDetailsService.getRoomDetails(this.roomId);
-      console.debug('ContentsSelect: Got room details', {
-        roomId: this.roomId,
-        contentsCount: details.contents?.length
-      });
-      this.contents = details.contents || [];
-      this.render();
-      this.attachEventListeners();
+      console.debug('ContentsSelect: Initializing');
+      
+      if (this.initializePromise) {
+        console.debug('ContentsSelect: Already initializing, waiting for completion');
+        await this.initializePromise;
+        return;
+      }
+
+      this.initializePromise = (async () => {
+        const details = await this.roomDetailsService.getRoomDetails(this.roomId);
+        console.debug('ContentsSelect: Got room details', {
+          roomId: this.roomId,
+          contentsCount: details.contents?.length,
+          contents: details.contents?.map(c => ({
+            id: c.id,
+            name: c.name,
+            type: typeof c
+          }))
+        });
+
+        this.contents = details.contents || [];
+        this.render();
+        this.attachEventListeners();
+        this.isInitialized = true;
+
+        // Set any pending value after initialization
+        if (this.pendingValue) {
+          console.debug('ContentsSelect: Setting pending value', { value: this.pendingValue });
+          await this.setValueWithRetry(this.pendingValue);
+          this.pendingValue = null;
+        }
+      })();
+
+      await this.initializePromise;
+      return this; // Return instance for chaining
     } catch (error) {
       console.error('Error loading room contents:', error);
       this.showError();
+      throw error;
     }
   }
 
+  async setValueWithRetry(value) {
+    console.debug('ContentsSelect: Setting value with retry', {
+      value,
+      maxRetries: this.maxRetries,
+      retryDelay: this.retryDelay,
+      isInitialized: this.isInitialized,
+      contentsLength: this.contents.length,
+      retryAttempts: this.retryAttempts,
+      contents: this.contents.map(c => ({
+        name: typeof c === 'string' ? c : c.name,
+        type: typeof c
+      }))
+    });
+
+    // Wait for initialization if needed
+    if (!this.isInitialized) {
+      console.debug('ContentsSelect: Waiting for initialization');
+      await this.initializePromise;
+    }
+
+    while (this.retryAttempts < this.maxRetries) {
+      try {
+        if (this.contents.length > 0) {
+          this._setValue(value);
+          this.retryAttempts = 0; // Reset counter on success
+          return true;
+        }
+        
+        console.debug('ContentsSelect: Retry attempt', {
+          attempt: this.retryAttempts + 1,
+          contentsLength: this.contents.length
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+        this.retryAttempts++;
+
+        // Reload contents on every other attempt
+        if (this.retryAttempts % 2 === 0) {
+          console.debug('ContentsSelect: Reloading contents during retry');
+          const details = await this.roomDetailsService.getRoomDetails(this.roomId);
+          this.contents = details.contents || [];
+        }
+      }
+      catch (error) {
+        console.error('Error setting value:', error);
+        this.retryAttempts++;
+      }
+    }
+
+    console.warn('ContentsSelect: Failed to set value after retries');
+    this.retryAttempts = 0; // Reset counter
+    return false;
+  }
+
+  _setValue(value) {
+    console.debug('ContentsSelect: Internal setValue', {
+      value,
+      valueType: typeof value,
+      isObject: value instanceof Object,
+      hasName: value?.name !== undefined,
+      contents: this.contents.map(c => ({
+        name: typeof c === 'string' ? c : c.name,
+        type: typeof c,
+        isObject: c instanceof Object
+      }))
+    });
+
+    const input = this.container.querySelector('#contentItem');
+    if (!input) {
+      throw new Error('Input element not found');
+    }
+
+    if (!value) {
+      input.value = '';
+      return;
+    }
+
+    // Normalize search value
+    const searchValue = (typeof value === 'string' ? value :
+                        value?.name || String(value)).toLowerCase().trim();
+
+    // Find matching content item
+    const item = this.contents.find(i => {
+      const itemName = (typeof i === 'string' ? i : i.name || '').toLowerCase().trim();
+      return itemName === searchValue;
+    });
+
+    if (item) {
+      input.value = typeof item === 'string' ? item : item.name;
+      console.debug('ContentsSelect: Set input value', {
+        value: input.value,
+        originalItem: item
+      });
+    } else {
+      // Show confirmation for new item
+      console.debug('ContentsSelect: No match found, showing confirmation');
+      this.showConfirmationModal(searchValue);
+    }
+  }
+
+  setValue(value) {
+    console.debug('ContentsSelect: Setting value', { 
+      value,
+      isInitialized: this.isInitialized,
+      hasPendingValue: !!this.pendingValue,
+      contentsLength: this.contents.length
+    });
+
+    // If not initialized, store as pending value
+    if (!this.isInitialized) {
+      console.debug('ContentsSelect: Not initialized, storing pending value');
+      this.pendingValue = value;
+      return;
+    }
+
+    // Use retry mechanism to set value
+    this.setValueWithRetry(value).catch(error => {
+      console.error('Failed to set value:', error);
+      showErrorAlert('Failed to set content item');
+    });
+  }
+
   render() {
+    console.debug('ContentsSelect: Rendering', {
+      contentCount: this.contents.length,
+      contents: this.contents.map(c => c.name)
+    });
     this.container.innerHTML = `
       <div class="mb-3">
         <label for="contentItem" class="form-label d-flex align-items-center gap-2">
@@ -193,12 +353,43 @@ export class ContentsSelect {
   getValue() {
     const input = this.container.querySelector('#contentItem');
     const value = input.value.trim();
+    console.debug('ContentsSelect: Getting value', { 
+      inputValue: value,
+      contents: this.contents.map(c => ({
+        name: typeof c === 'string' ? c : c.name,
+        type: typeof c,
+        isObject: c instanceof Object
+      }))
+    });
     
     if (!value) return null;
 
-    const existingItem = this.contents.find(item => 
-      item.name.toLowerCase() === value.toLowerCase()
-    );
+    const existingItem = this.contents.find(item => {
+      // Normalize item name
+      const itemName = (typeof item === 'string' ? item : item.name || '').toLowerCase().trim();
+      const searchValue = value.toLowerCase().trim();
+
+      console.debug('ContentsSelect: Comparing items', {
+        itemName,
+        searchValue,
+        match: itemName === searchValue,
+        itemType: typeof item,
+        isObject: item instanceof Object,
+        fullItem: item instanceof Object ? { ...item } : item
+      });
+
+      return itemName === searchValue;
+    });
+
+    console.debug('ContentsSelect: getValue result', {
+      value,
+      existingItem: existingItem && {
+        name: typeof existingItem === 'string' ? existingItem : existingItem.name,
+        type: typeof existingItem,
+        isObject: existingItem instanceof Object,
+        fullItem: existingItem instanceof Object ? { ...existingItem } : existingItem
+      }
+    });
 
     return existingItem || {
       id: crypto.randomUUID(),
