@@ -10,7 +10,8 @@ import { PropertyTaskService } from '../../services/PropertyTaskService.js';
 import { CalendarSync } from './CalendarSync.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { Navigation } from '../ui/Navigation.js';
-import { LoadingSpinner } from '../ui/LoadingSpinner.js';
+import { LoadingSpinner } from '../ui/LoadingSpinner.js'; 
+import { CollapsibleSection } from '../ui/CollapsibleSection.js';
 
 export class PropertyDetails {
   constructor(containerId) {
@@ -98,42 +99,45 @@ export class PropertyDetails {
       </div>
       
       <!-- Tasks -->
-      <div class="card mb-4">
-        <div class="card-header bg-transparent d-flex align-items-center gap-2">
-          ${IconService.createIcon('ListChecks')}
-          <h3 class="h5 mb-0">Standard Tasks</h3>
-        </div>
-        <div class="card-body">
-          <div id="tasksContainer" data-is-admin="${this.property.isAdmin || false}"></div>
-        </div>
-      </div>
+      ${CollapsibleSection.render({
+        title: 'Standard Tasks',
+        icon: 'ListChecks',
+        headerClass: 'bg-primary bg-opacity-10',
+        content: {
+          headerContent: '',
+          body: `<div id="tasksContainer" data-is-admin="${this.property.isAdmin || false}"></div>`
+        },
+        isCollapsed: CollapsibleSection.getStoredState('standard-tasks')
+      })}
       
       <!-- Main Content -->
       <div class="row row-cols-1 row-cols-lg-2 g-4">
         <!-- Rooms -->
         <div class="col">
-          <div class="card">
-            <div class="card-header bg-transparent d-flex align-items-center gap-2">
-              ${IconService.createIcon('DoorClosed')}
-              <h3 class="h5 mb-0">Rooms</h3>
-            </div>
-            <div class="card-body">
-              <div id="roomListContainer" data-is-admin="${this.property.isAdmin || false}"></div>
-            </div>
-          </div>
+          ${CollapsibleSection.render({
+            title: 'Rooms',
+            icon: 'DoorClosed',
+            headerClass: 'bg-primary bg-opacity-10',
+            content: {
+              headerContent: '',
+              body: `<div id="roomListContainer" data-is-admin="${this.property.isAdmin || false}"></div>`
+            },
+            isCollapsed: CollapsibleSection.getStoredState('rooms')
+          })}
         </div>
 
         <!-- Utilities -->
         <div class="col">
-          <div class="card">
-            <div class="card-header bg-transparent d-flex align-items-center gap-2">
-              ${IconService.createIcon('Zap')}
-              <h3 class="h5 mb-0">Utilities</h3>
-            </div>
-            <div class="card-body">
-              <div id="utilitiesContainer" data-is-admin="${this.property.isAdmin || false}"></div>
-            </div>
-          </div>
+          ${CollapsibleSection.render({
+            title: 'Utilities',
+            icon: 'Zap',
+            headerClass: 'bg-primary bg-opacity-10',
+            content: {
+              headerContent: '',
+              body: `<div id="utilitiesContainer" data-is-admin="${this.property.isAdmin || false}"></div>`
+            },
+            isCollapsed: CollapsibleSection.getStoredState('utilities')
+          })}
         </div>
       </div>
     `;
@@ -141,6 +145,10 @@ export class PropertyDetails {
     // Initialize sub-components
     new RoomList('roomListContainer', this.property.id, this.property.isAdmin);
     new PropertyUtilities('utilitiesContainer', this.property.id, this.property.isAdmin);
+    
+    // Initialize collapsible sections
+    CollapsibleSection.attachEventListeners(this.container);
+    
     if (this.property.isAdmin) {
       const taskList = new TaskList('tasksContainer', this.property.id, this.taskService);
       taskList.initialize();

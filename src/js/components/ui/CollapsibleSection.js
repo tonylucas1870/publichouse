@@ -2,7 +2,8 @@ import { IconService } from '../../services/IconService.js';
 
 export class CollapsibleSection {
   static render({ title, icon, content, headerClass = 'bg-primary bg-opacity-10', isCollapsed = false }) {
-    const id = `section-${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a stable ID based on the title
+    const id = title.toLowerCase().replace(/[^a-z0-9]/g, '-');
     
     return `
       <div class="card mb-4">
@@ -14,7 +15,7 @@ export class CollapsibleSection {
           <div class="d-flex align-items-center gap-2">
             ${this.renderHeaderContent(content.headerContent)}
             <button class="btn btn-link btn-sm p-0 text-muted toggle-section" 
-                    data-section="${id}"
+                    data-section-id="${id}"
                     aria-expanded="${!isCollapsed}"
                     style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
               ${IconService.createIcon(isCollapsed ? 'ChevronDown' : 'ChevronUp')}
@@ -35,7 +36,7 @@ export class CollapsibleSection {
   static attachEventListeners(container) {
     container.querySelectorAll('.toggle-section').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const sectionId = btn.dataset.section;
+        const sectionId = btn.dataset.sectionId;
         const content = document.getElementById(sectionId);
         const isExpanded = btn.getAttribute('aria-expanded') === 'true';
         
@@ -45,14 +46,27 @@ export class CollapsibleSection {
         // Update button
         btn.setAttribute('aria-expanded', !isExpanded);
         btn.innerHTML = IconService.createIcon(isExpanded ? 'ChevronDown' : 'ChevronUp');
-        
+
         // Save state to localStorage
-        localStorage.setItem(`section-${sectionId}-collapsed`, isExpanded);
+        const storageKey = `section-collapsed-${sectionId}`;
+        localStorage.setItem(storageKey, isExpanded);
+        console.debug('CollapsibleSection: Saved state', { 
+          sectionId,
+          storageKey,
+          isCollapsed: isExpanded
+        });
       });
     });
   }
 
   static getStoredState(sectionId) {
-    return localStorage.getItem(`section-${sectionId}-collapsed`) === 'true';
+    const storageKey = `section-collapsed-${sectionId}`;
+    const storedValue = localStorage.getItem(storageKey);
+    console.debug('CollapsibleSection: Getting stored state', {
+      sectionId,
+      storageKey,
+      storedValue
+    });
+    return storedValue === 'true';
   }
 }
