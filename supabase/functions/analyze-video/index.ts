@@ -1,12 +1,18 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 import { Buffer } from 'https://deno.land/std@0.168.0/node/buffer.ts';
+import { inspect } from 'https://deno.land/std@0.168.0/node/util.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
+
+// Debug logging helper
+function debugLog(stage: string, data: any) {
+  console.log(`[${stage}] ${inspect(data, { depth: null, colors: true })}`);
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
@@ -21,6 +27,11 @@ serve(async (req) => {
   try {
     // Get JWT token
     const authHeader = req.headers.get('Authorization');
+    debugLog('Auth Header', { 
+      exists: !!authHeader,
+      header: authHeader?.substring(0, 20) + '...' // Log first 20 chars for debugging
+    });
+
     if (!authHeader) {
       throw new Error('No authorization header');
     }
@@ -29,6 +40,12 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
+
+    debugLog('Auth Check', {
+      success: !!user && !authError,
+      userId: user?.id,
+      error: authError
+    });
 
     if (authError || !user) {
       throw new Error('Invalid authorization token');
@@ -40,8 +57,16 @@ serve(async (req) => {
     const rooms = JSON.parse(formData.get('rooms') as string || '[]');
     const contentItems = JSON.parse(formData.get('contentItems') as string || '[]');
 
-    if (!videoFile) {
-      throw new Error('No video file provided');
+    debugLog('Request Data', {
+      hasVideo: !!videoFile,
+      videoType: videoFile?.type,
+      videoSize: videoFile?.size,
+      roomCount: rooms.length,
+      itemCount: contentItems.length
+    });
+
+    if (!videoFile || !videoFile.type.startsWith('video/')) {
+      throw new Error(`Invalid video file: ${videoFile?.type || 'no file'}`);
     }
 
     console.debug('Analyzing video', {
@@ -55,11 +80,36 @@ serve(async (req) => {
     const arrayBuffer = await videoFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    debugLog('Video Buffer', {
+      size: buffer.length,
+      preview: buffer.slice(0, 50), // First 50 bytes for format checking
+      mimeType: videoFile.type
+    });
+
+    // Get correct file extension based on MIME type
+    const mimeToExt = {
+      'video/mp4': '.mp4',
+      'video/webm': '.webm',
+      'audio/mpeg': '.mp3',
+      'audio/mp4': '.m4a',
+      'audio/webm': '.webm',
+      'audio/wav': '.wav'
+    };
+
+    const fileExt = mimeToExt[videoFile.type] || '.mp4';
+
     // Create form data for Whisper API
     const whisperFormData = new FormData();
-    whisperFormData.append('file', new Blob([buffer], { type: videoFile.type }), 'video.mov');
+    whisperFormData.append('file', new Blob([buffer], { type: videoFile.type }), `audio${fileExt}`);
     whisperFormData.append('model', 'whisper-1');
     whisperFormData.append('language', 'en');
+
+    debugLog('Whisper Request', {
+      blobSize: new Blob([buffer]).size,
+      mimeType: videoFile.type,
+      fileName: `audio${fileExt}`,
+      model: 'whisper-1'
+    });
 
     console.debug('Sending video to Whisper API');
     const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -70,8 +120,15 @@ serve(async (req) => {
       body: whisperFormData
     });
 
+    debugLog('Whisper Response', {
+      status: whisperResponse.status,
+      statusText: whisperResponse.statusText,
+      headers: Object.fromEntries(whisperResponse.headers.entries())
+    });
+
     if (!whisperResponse.ok) {
       const error = await whisperResponse.json();
+      debugLog('Whisper Error', error);
       console.error('Whisper API error:', error);
       throw new Error('Transcription failed: ' + (error.error?.message || 'Unknown error'));
     }
@@ -104,10 +161,12 @@ serve(async (req) => {
       - description should be clear and concise
     `;
 
-    console.debug('Sending prompt to GPT', {
+    debugLog('GPT Request', {
+      model: 'gpt-4',
       promptLength: prompt.length,
       roomCount: rooms.length,
-      itemCount: contentItems.length
+      itemCount: contentItems.length,
+      transcriptLength: transcript.text.length
     });
 
     const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -129,8 +188,15 @@ serve(async (req) => {
       })
     });
 
+    debugLog('GPT Response', {
+      status: gptResponse.status,
+      statusText: gptResponse.statusText,
+      headers: Object.fromEntries(gptResponse.headers.entries())
+    });
+
     if (!gptResponse.ok) {
       const error = await gptResponse.json();
+      debugLog('GPT Error', error);
       console.error('GPT API error:', error);
       throw new Error('Analysis failed: ' + (error.error?.message || 'Unknown error'));
     }
@@ -138,10 +204,11 @@ serve(async (req) => {
     const analysis = await gptResponse.json();
     const result = JSON.parse(analysis.choices[0].message.content);
 
-    console.debug('Analysis complete', {
-      location: result.location,
-      hasContentItem: !!result.contentItem,
-      descriptionLength: result.description.length
+    debugLog('Analysis Result', {
+      raw: analysis.choices[0].message.content,
+      parsed: result,
+      matchedRoom: rooms.some((r: any) => r.name === result.location),
+      matchedItem: contentItems.some((i: any) => (i.name || i) === result.contentItem)
     });
 
     return new Response(
@@ -156,6 +223,11 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error analyzing video:', error);
+    debugLog('Error', {
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    });
     return new Response(
       JSON.stringify({ 
         error: error.message,

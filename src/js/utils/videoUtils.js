@@ -17,50 +17,79 @@ export async function convertToMP4(file) {
     // Create canvas and context for recording
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
+    let recorder = null;
 
     // Set up video metadata loading
     video.onloadedmetadata = () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      // Start video playback
-      video.play();
+
+      // Try to get supported MIME type
+      const mimeTypes = [
+        'video/mp4;codecs=h264',
+        'video/webm;codecs=h264',
+        'video/webm'
+      ];
+
+      let mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+      if (!mimeType) {
+        reject(new Error('No supported video format found'));
+        return;
+      }
+
+      console.debug('VideoUtils: Using MIME type', { mimeType });
+
+      try {
+        // Configure MediaRecorder with supported type
+        recorder = new MediaRecorder(canvas.captureStream(30), {
+          mimeType,
+          videoBitsPerSecond: 2500000 // 2.5 Mbps
+        });
+
+        // Start video playback
+        video.play();
+      } catch (error) {
+        console.error('VideoUtils: MediaRecorder error:', error);
+        reject(error);
+      }
     };
 
     // When video can play, start recording
     video.oncanplay = () => {
-      // Configure MediaRecorder
-      const stream = canvas.captureStream(30); // 30 FPS
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=h264',
-        videoBitsPerSecond: 2500000 // 2.5 Mbps
-      });
-
       const chunks = [];
       
-      mediaRecorder.ondataavailable = (e) => {
+      recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           chunks.push(e.data);
         }
       };
 
-      mediaRecorder.onstop = () => {
-        // Create MP4 file from chunks
-        const mp4Blob = new Blob(chunks, { type: 'video/mp4' });
-        const mp4File = new File([mp4Blob], file.name.replace(/\.[^/.]+$/, '.mp4'), {
-          type: 'video/mp4'
+      recorder.onstop = () => {
+        // Create file with correct MIME type
+        const outputType = recorder.mimeType.startsWith('video/mp4') ? 'video/mp4' : 'video/webm';
+        const extension = outputType === 'video/mp4' ? '.mp4' : '.webm';
+        
+        const blob = new Blob(chunks, { type: outputType });
+        console.debug('VideoUtils: Created converted video', {
+          type: outputType,
+          size: blob.size,
+          extension
+        });
+
+        const mp4File = new File([blob], file.name.replace(/\.[^/.]+$/, '.mp4'), {
+          type: outputType
         });
         resolve(mp4File);
       };
 
       // Start recording
-      mediaRecorder.start();
+      recorder.start();
 
       // Draw video frames to canvas
       function drawFrame() {
         if (video.ended || video.paused) {
-          mediaRecorder.stop();
-          stream.getTracks().forEach(track => track.stop());
+          recorder.stop();
+          canvas.captureStream().getTracks().forEach(track => track.stop());
           return;
         }
         
@@ -85,5 +114,7 @@ export async function convertToMP4(file) {
  * Check if a file needs conversion
  */
 export function needsConversion(file) {
-  return file.type === 'video/quicktime';
+  // Check for QuickTime/MOV files
+  return file.type === 'video/quicktime' || 
+         file.name.toLowerCase().endsWith('.mov');
 }
