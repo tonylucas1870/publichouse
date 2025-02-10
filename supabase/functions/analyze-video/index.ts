@@ -60,20 +60,42 @@ serve(async (req) => {
     debugLog('Request Data', {
       hasVideo: !!videoFile,
       videoType: videoFile?.type,
+      videoName: videoFile?.name,
       videoSize: videoFile?.size,
+      videoHeaders: Object.fromEntries(videoFile?.stream?.getHeaders?.() || []),
       roomCount: rooms.length,
       itemCount: contentItems.length
     });
 
-    if (!videoFile || !videoFile.type.startsWith('video/')) {
-      throw new Error(`Invalid video file: ${videoFile?.type || 'no file'}`);
+    // Get correct MIME type based on file extension
+    const getVideoMimeType = (filename: string) => {
+      const ext = filename.split('.').pop()?.toLowerCase();
+      const mimeTypes = {
+        'mp4': 'video/mp4',
+        'webm': 'video/webm',
+        'mov': 'video/mp4', // Convert MOV to MP4
+        'm4a': 'audio/mp4',
+        'mp3': 'audio/mpeg',
+        'wav': 'audio/wav'
+      };
+      return mimeTypes[ext as keyof typeof mimeTypes] || 'video/mp4';
+    };
+
+    // Determine correct MIME type
+    const mimeType = getVideoMimeType(videoFile.name);
+    debugLog('MIME Type', {
+      original: videoFile.type,
+      determined: mimeType,
+      filename: videoFile.name
+    });
     }
 
     console.debug('Analyzing video', {
       userId: user.id,
       roomCount: rooms.length,
       itemCount: contentItems.length,
-      videoType: videoFile.type
+      videoType: mimeType,
+      originalType: videoFile.type
     });
 
     // Convert video file to ArrayBuffer
@@ -83,30 +105,22 @@ serve(async (req) => {
     debugLog('Video Buffer', {
       size: buffer.length,
       preview: buffer.slice(0, 50), // First 50 bytes for format checking
-      mimeType: videoFile.type
+      originalMimeType: videoFile.type,
+      newMimeType: mimeType
     });
 
-    // Get correct file extension based on MIME type
-    const mimeToExt = {
-      'video/mp4': '.mp4',
-      'video/webm': '.webm',
-      'audio/mpeg': '.mp3',
-      'audio/mp4': '.m4a',
-      'audio/webm': '.webm',
-      'audio/wav': '.wav'
-    };
-
-    const fileExt = mimeToExt[videoFile.type] || '.mp4';
+    // Get file extension from MIME type
+    const fileExt = '.' + mimeType.split('/')[1];
 
     // Create form data for Whisper API
     const whisperFormData = new FormData();
-    whisperFormData.append('file', new Blob([buffer], { type: videoFile.type }), `audio${fileExt}`);
+    whisperFormData.append('file', new Blob([buffer], { type: mimeType }), `audio${fileExt}`);
     whisperFormData.append('model', 'whisper-1');
     whisperFormData.append('language', 'en');
 
     debugLog('Whisper Request', {
       blobSize: new Blob([buffer]).size,
-      mimeType: videoFile.type,
+      mimeType: mimeType,
       fileName: `audio${fileExt}`,
       model: 'whisper-1'
     });
