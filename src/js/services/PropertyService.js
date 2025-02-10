@@ -55,7 +55,6 @@ export class PropertyService {
           showErrorAlert('Property created and calendar synced successfully', 'success');
         } catch (syncError) {
           console.error('Error syncing calendar:', syncError);
-          // Don't throw error here - property was created successfully
           showErrorAlert('Property created but calendar sync failed. You can retry sync later.');
         }
       }
@@ -69,28 +68,38 @@ export class PropertyService {
 
   async getProperty(id) {
     try {
-      if (!id) throw new Error('Property ID is required');
+      if (!id) {
+        throw new Error('No property ID provided');
+      }
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Authentication required');
+      if (!user) {
+        throw new Error('Please sign in to view property details');
+      }
 
       // Get property details
       const { data: property, error: propertyError } = await supabase
         .from('properties')
         .select('*')
-        .eq('id', id)
-        .eq('created_by', user.id)
-        .single();
+        .eq('id', id);
 
-      if (propertyError) throw propertyError;
-      if (!property) throw new Error('Property not found');
+      if (propertyError) {
+        console.error('PropertyService: Database error:', propertyError);
+        throw new Error('Failed to load property details');
+      }
+      
+      // Check if property exists and user has access
+      const userProperty = property?.find(p => p.created_by === user.id);
+      if (!userProperty) {
+        throw new Error('Property not found or access denied');
+      }
 
       // Transform null address to empty string
-      property.address = property.address || '';
+      userProperty.address = userProperty.address || '';
 
-      return { data: property, isAdmin: true }; // Owner always has admin rights
+      return { data: userProperty, isAdmin: true }; // Owner always has admin rights
     } catch (error) {
       console.error('PropertyService error:', error);
-      throw handleSupabaseError(error, 'Failed to load property');
+      throw handleSupabaseError(error, error.message || 'Failed to load property details');
     }
   }
 

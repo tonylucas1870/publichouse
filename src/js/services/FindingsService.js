@@ -6,33 +6,52 @@ import { getCurrentDate } from '../utils/dateUtils.js';
 export class FindingsService {
   async getFindings(changeoverId) {
     try {
-      // Get current user first
-      const { data: { user } } = await supabase.auth.getUser();
+      console.debug('FindingsService: Getting findings', { changeoverId });
 
-      // Verify changeover exists and get property info
-      const { data: changeover, error: changeoverError } = await supabase 
+      // Check if this is a property ID instead of a changeover ID
+      const { data: changeovers, error: changeoverError } = await supabase
         .from('changeovers')
-        .select(`
-          id,
-          share_token,
-          property:properties (
+        .select('id')
+        .eq('property_id', changeoverId);
+
+      if (!changeoverError && changeovers?.length > 0) {
+        // If we got changeovers, this was a property ID
+        const changeoverIds = changeovers.map(c => c.id);
+        console.debug('FindingsService: Found changeovers for property', { 
+          count: changeoverIds.length,
+          ids: changeoverIds 
+        });
+
+        const { data: findings, error: findingsError } = await supabase
+          .from('findings')
+          .select(`
             id,
-            created_by,
-            name
-          )
-        `)
-        .eq('id', changeoverId)
-        .single();
+            description,
+            location,
+            images,
+            date_found,
+            status,
+            notes,
+            content_item,
+            changeover:changeovers (
+              id,
+              property:properties (
+                id,
+                name
+              )
+            )
+          `)
+          .in('changeover_id', changeoverIds)
+          .order('date_found', { ascending: false });
 
-      if (changeoverError) throw changeoverError;
-
-      // Check access - allow if shared or owner
-      if (!changeover.share_token && (!user || user.id !== changeover.property?.created_by)) {
-        throw new Error('Access denied');
+        if (findingsError) throw findingsError;
+        return findings || [];
       }
 
-      const { data, error } = await supabase
-        .from('findings').select(`
+      // Get findings for the changeover
+      const { data: findings, error: findingsError } = await supabase
+        .from('findings')
+        .select(`
           id,
           description,
           location,
@@ -52,11 +71,18 @@ export class FindingsService {
         .eq('changeover_id', changeoverId)
         .order('date_found', { ascending: false });
 
-      if (error) throw error;
+
+      if (findingsError) throw findingsError;
       
-      return data || [];
+      return findings || [];
     } catch (error) {
       console.error('FindingsService: Error getting findings', error);
+      console.debug('FindingsService: Error details', {
+        error,
+        changeoverId,
+        message: error.message,
+        details: error.details
+      });
       throw handleSupabaseError(error, 'Failed to load findings');
     }
   }

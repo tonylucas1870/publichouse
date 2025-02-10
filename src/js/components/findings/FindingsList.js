@@ -14,7 +14,7 @@ export class FindingsList {
   constructor(containerId, findingsService, changeoverId) {
     console.debug('FindingsList: Constructor', { changeoverId });
     this.container = document.getElementById(containerId);
-    this.currentView = localStorage.getItem('findings-view') || 'list'; // Default to list view
+    this.currentView = 'list'; // Always start with list view
     if (!this.container) {
       throw new Error('Findings list container not found');
     }
@@ -33,7 +33,12 @@ export class FindingsList {
     this.statusFilter = null;
     this.pollingInterval = null;
     this.statusSubscription = null;
+    this.showHeader = true;
     this.initialize();
+  }
+
+  setShowHeader(show) {
+    this.showHeader = show;
   }
 
   async initialize() {
@@ -146,42 +151,11 @@ export class FindingsList {
   }
 
   render() {
-    const content = {
-      headerContent: `
-        <div class="d-flex align-items-center gap-3 justify-content-between flex-wrap">
-          <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
-            <option value="">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="open">Open</option>
-            <option value="blocked">Blocked</option>
-            <option value="wont_fix">Won't Fix</option>
-            <option value="fixed">Fixed</option>
-          </select>
-          <div class="btn-group">
-            <button type="button" class="btn btn-sm view-toggle" data-view="list" title="List View">
-              ${IconService.createIcon('List', { width: '16', height: '16' })}
-            </button>
-            <button type="button" class="btn btn-sm view-toggle" data-view="grid" title="Grid View">
-              ${IconService.createIcon('Grid', { width: '16', height: '16' })}
-            </button>
-          </div>
-        </div>
-      `,
-      body: this.renderFindingsList()
-    };
-
-    this.container.innerHTML = CollapsibleSection.render({
-      title: 'Findings',
-      icon: 'Search',
-      content,
-      isCollapsed: CollapsibleSection.getStoredState('findings')
-    });
+    this.container.innerHTML = this.renderFindingsList();
 
     // Set initial view
-    this.currentView = localStorage.getItem('findings-view') || 'list';
     this.setActiveView(this.currentView);
 
-    CollapsibleSection.attachEventListeners(this.container);
     this.attachEventListeners();
   }
 
@@ -265,32 +239,29 @@ export class FindingsList {
   attachEventListeners() {
     // Status filter
     const statusFilter = this.container.querySelector('#statusFilter');
-    if (statusFilter) {
+    const parentStatusFilter = document.querySelector('#propertyStatusFilter');
+    if (parentStatusFilter) {
       // Prevent click propagation
-      statusFilter.addEventListener('click', (e) => {
+      parentStatusFilter.addEventListener('click', (e) => {
         e.stopPropagation();
       });
       
       // Handle change event
-      statusFilter.addEventListener('change', (e) => {
+      parentStatusFilter.addEventListener('change', (e) => {
         e.stopPropagation();
         this.statusFilter = e.target.value || null;
         this.render();
         
         // Maintain filter value after render
-        const newFilter = this.container.querySelector('#statusFilter');
-        if (newFilter) {
-          newFilter.value = this.statusFilter || '';
-        }
+        parentStatusFilter.value = this.statusFilter || '';
       });
     }
 
     // View toggle
-    this.container.querySelectorAll('.view-toggle').forEach(btn => {
+    document.querySelectorAll('.findings-view-toggle').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const view = btn.dataset.view;
         this.currentView = view;
-        localStorage.setItem('findings-view', view);
         this.render();
       });
     });

@@ -1,4 +1,6 @@
 import { IconService } from '../../services/IconService.js';
+import { FindingsService } from '../../services/FindingsService.js';
+import { FindingsList } from '../findings/FindingsList.js';
 import { PropertyService } from '../../services/PropertyService.js';
 import { RoomList } from './RoomList.js';
 import { PropertyUtilities } from './PropertyUtilities.js';
@@ -29,13 +31,17 @@ export class PropertyDetails {
   async initialize(propertyId) {
     try {
       if (!propertyId) {
-        throw new Error('Property ID is required');
+        throw new Error('No property ID provided');
       }
 
       this.showLoading();
       console.debug('PropertyDetails: Initializing with ID', { propertyId });
 
       const result = await this.propertyService.getProperty(propertyId);
+      if (!result) {
+        throw new Error('Property not found');
+      }
+
       const { data: property, isAdmin } = result;
       console.debug('PropertyDetails: Got property data', { 
         property,
@@ -44,11 +50,10 @@ export class PropertyDetails {
       });
 
       this.property = property;
-      this.property.isAdmin = isAdmin;
-      
       if (!this.property) {
         throw new Error('Property not found');
       }
+      this.property.isAdmin = isAdmin;
 
       console.debug('PropertyDetails: Rendering with access', {
         isAdmin: this.property.isAdmin,
@@ -71,9 +76,21 @@ export class PropertyDetails {
   showError(message) {
     this.container.innerHTML = `
       <div class="mb-4">
-        ${Navigation.renderBackButton()}
-        <div class="alert alert-danger mt-3">
-          ${message || 'Failed to load property details. Please try again later.'}
+        <div class="d-flex justify-content-between align-items-center">
+          ${Navigation.renderBackButton()}
+          <button class="btn btn-outline-secondary btn-sm" onclick="window.location.reload()">
+            ${IconService.createIcon('RefreshCw')}
+            Retry
+          </button>
+        </div>
+        <div class="alert alert-danger mt-3 d-flex align-items-center gap-2">
+          ${IconService.createIcon('AlertCircle')}
+          <div>
+            <strong>Error:</strong> ${message || 'Failed to load property details'}
+            <div class="small text-danger mt-1">
+              Please check that the property exists and you have permission to view it.
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -84,21 +101,9 @@ export class PropertyDetails {
       <div class="mb-4">
         ${Navigation.renderBackButton()}
       </div>
-      
-      <!-- Findings -->
-      ${CollapsibleSection.render({
-        title: 'Findings',
-        icon: 'Search',
-        headerClass: 'bg-primary bg-opacity-10',
-        content: {
-          headerContent: '',
-          body: `<div id="findingsContainer" data-is-admin="${this.property.isAdmin || false}"></div>`
-        },
-        isCollapsed: CollapsibleSection.getStoredState('findings')
-      })}
 
       <!-- Property Management Card -->
-      <div class="card mb-4">
+      <div class="card">
         <div class="card-body">
           ${this.isEditing && this.property.isAdmin ? 
             PropertyForm.render(this.property) :
@@ -157,7 +162,6 @@ export class PropertyDetails {
     // Initialize sub-components
     new RoomList('roomListContainer', this.property.id, this.property.isAdmin);
     new PropertyUtilities('utilitiesContainer', this.property.id, this.property.isAdmin);
-    new PendingFindingsList('findingsContainer', this.findingsService);
     
     // Initialize collapsible sections
     CollapsibleSection.attachEventListeners(this.container);
