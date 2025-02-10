@@ -266,13 +266,40 @@ export class TaskList {
   attachEventListeners() {
     // Search input
     const searchInput = this.container.querySelector('#taskSearch');
+    let searchTimeout;
     if (searchInput) {
+      // Restore focus if we had it before
+      if (document.activeElement?.id === 'taskSearch') {
+        searchInput.focus();
+        // Restore cursor position to end of input
+        const len = searchInput.value.length;
+        searchInput.setSelectionRange(len, len);
+      }
+
       searchInput.addEventListener('input', (e) => {
         this.searchTerm = e.target.value;
         this.currentPage = 1;
         this.applyFilters();
-        this.render();
-        this.attachEventListeners();
+        
+        // Debounce the re-render
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          const activeElement = document.activeElement;
+          const selectionStart = searchInput.selectionStart;
+          const selectionEnd = searchInput.selectionEnd;
+          
+          this.render();
+          this.attachEventListeners();
+          
+          // Restore focus and selection if the search input was focused
+          if (activeElement?.id === 'taskSearch') {
+            const newSearchInput = this.container.querySelector('#taskSearch');
+            if (newSearchInput) {
+              newSearchInput.focus();
+              newSearchInput.setSelectionRange(selectionStart, selectionEnd);
+            }
+          }
+        }, 300); // Debounce for 300ms
       });
     }
 
