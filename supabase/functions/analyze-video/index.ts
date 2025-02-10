@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
-import { decode } from 'https://deno.land/x/webm@v0.1.5/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,7 +35,7 @@ serve(async (req) => {
 
     // Get form data
     const formData = await req.formData();
-    const videoFile = formData.get('file');
+    const videoFile = formData.get('file') as File;
     const rooms = JSON.parse(formData.get('rooms') as string);
     const contentItems = JSON.parse(formData.get('contentItems') as string);
     const changeoverId = formData.get('changeoverId');
@@ -75,31 +74,14 @@ serve(async (req) => {
       itemCount: contentItems.length
     });
 
-    // Extract audio from WebM video
-    const videoData = new Uint8Array(await (videoFile as File).arrayBuffer());
-    const webm = decode(videoData);
-    const audioTrack = webm.tracks.find(t => t.type === 'audio');
-
-    if (!audioTrack) {
-      throw new Error('No audio track found in video');
-    }
-
-    // Convert audio to WAV format
-    const audioData = new Uint8Array(audioTrack.data);
-    const wavBlob = new Blob([audioData], { type: 'audio/wav' });
-
-    console.debug('Extracted audio from video', {
-      audioSize: audioData.length,
-      format: 'wav'
-    });
-
-    // Send to Whisper API
+    // Send video directly to Whisper API
+    // Whisper can handle video files and will extract audio internally
     const whisperFormData = new FormData();
-    whisperFormData.append('file', wavBlob);
+    whisperFormData.append('file', videoFile);
     whisperFormData.append('model', 'whisper-1');
     whisperFormData.append('language', 'en');
 
-    console.debug('Sending audio to Whisper API');
+    console.debug('Sending video to Whisper API');
     const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
@@ -111,7 +93,7 @@ serve(async (req) => {
     if (!whisperResponse.ok) {
       const error = await whisperResponse.json();
       console.error('Whisper API error:', error);
-      throw new Error('Transcription failed');
+      throw new Error('Transcription failed: ' + error.error?.message || 'Unknown error');
     }
 
     const transcript = await whisperResponse.json();
@@ -170,7 +152,7 @@ serve(async (req) => {
     if (!gptResponse.ok) {
       const error = await gptResponse.json();
       console.error('GPT API error:', error);
-      throw new Error('Analysis failed');
+      throw new Error('Analysis failed: ' + error.error?.message || 'Unknown error');
     }
 
     const analysis = await gptResponse.json();
