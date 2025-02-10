@@ -218,8 +218,27 @@ export class PendingFindingsList {
   }
 
   renderFindingCard(finding) {
+    const hasImages = finding.images?.length > 0;
+    const mainImage = hasImages ? finding.images[0] : null;
+
     return `
       <div class="card-body">
+        ${hasImages ? `
+          <div class="mb-3">
+            ${renderMediaThumbnail({ 
+              url: mainImage, 
+              size: 'large',
+              showPlayIcon: isVideo(mainImage)
+            })}
+            ${finding.images.length > 1 ? `
+              <div class="position-absolute top-0 end-0 m-2">
+                <span class="badge bg-dark bg-opacity-75">
+                  +${finding.images.length - 1} more
+                </span>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
         <div class="d-flex justify-content-between align-items-start mb-3">
           ${StatusBadge.render(finding.status)}
           <small class="text-muted">${formatDate(finding.date_found)}</small>
