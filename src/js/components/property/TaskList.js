@@ -1,6 +1,7 @@
 import { IconService } from '../../services/IconService.js';
 import { TaskModal } from './TaskModal.js';
 import { formatDate } from '../../utils/dateUtils.js';
+import { isVideo, renderMediaThumbnail } from '../../utils/mediaUtils.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 
 export class TaskList {
