@@ -8,6 +8,13 @@ import { validateMedia } from '../../utils/imageUtils.js';
 
 export class UploadForm {
   constructor(containerId, findingsService, findingsList, changeoverId) {
+    console.debug('UploadForm: Initializing', { 
+      containerId,
+      hasService: !!findingsService,
+      hasList: !!findingsList,
+      changeoverId
+    });
+
     this.container = document.getElementById(containerId);
     if (!this.container) {
       throw new Error('Upload form container not found');
@@ -18,6 +25,7 @@ export class UploadForm {
     this.selectedImages = [];
     this.roomSelect = null;
     this.roomDetailsService = new RoomDetailsService();
+    this.isAnalyzing = false;
     
     this.render();
     this.attachEventListeners();
@@ -61,6 +69,7 @@ export class UploadForm {
             class="d-none"
             multiple
           />
+          <div id="analysisStatus" class="mb-2"></div>
           <button type="button" class="btn btn-outline-primary w-100" id="addImagesBtn">
             ${IconService.createIcon('Upload')}
             Upload Images/Videos
@@ -79,6 +88,7 @@ export class UploadForm {
     const imageInput = this.container.querySelector('#imageInput');
     const addImagesBtn = this.container.querySelector('#addImagesBtn');
     this.contentsSelect = null;
+    this.analysisStatus = this.container.querySelector('#analysisStatus');
 
     // Initialize RoomSelect
     this.roomSelect = new RoomSelect('locationContainer', this.changeoverId);
@@ -115,14 +125,35 @@ export class UploadForm {
 
     addImagesBtn.addEventListener('click', () => imageInput.click());
 
-    imageInput.addEventListener('change', (e) => {
+    imageInput.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files || []);
-      files.forEach(file => {
+      console.debug('UploadForm: Files selected', { 
+        count: files.length,
+        types: files.map(f => f.type)
+      });
+
+      files.forEach(async file => {
         const error = validateMedia(file);
         const isVideo = file.type.startsWith('video/');
         if (error) {
           showErrorAlert(error);
           return;
+        }
+
+        // If it's a video, analyze it first
+        if (isVideo) {
+          console.debug('UploadForm: Processing video file', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          });
+
+          try {
+            await this.analyzeVideo(file);
+          } catch (error) {
+            console.error('UploadForm: Video analysis failed', error);
+            showErrorAlert('Video analysis failed: ' + error.message);
+          }
         }
 
         const reader = new FileReader();
@@ -176,7 +207,7 @@ export class UploadForm {
         await this.findingsService.add({
           description: form.description.value.trim(),
           location: this.roomSelect.getValue(),
-          content_item: contentItem, // Match the database column name
+          content_item: contentItem,
           images: this.selectedImages.length > 0 ? this.selectedImages.map(img => img.file) : [],
           changeoverId: this.changeoverId
         });
@@ -198,6 +229,108 @@ export class UploadForm {
         showErrorAlert(error.message || 'Failed to submit finding');
       }
     });
+  }
+
+  async analyzeVideo(file) {
+    if (this.isAnalyzing) {
+      console.debug('UploadForm: Video analysis already in progress');
+      return;
+    }
+
+    this.isAnalyzing = true;
+    this.updateAnalysisStatus('Analyzing video...');
+
+    try {
+      console.debug('UploadForm: Starting video analysis');
+
+      // Get property context
+      const { data: context, error: contextError } = await supabase.rpc(
+        'analyze_video_content',
+        { p_property_id: this.changeoverId }
+      );
+
+      if (contextError) throw contextError;
+
+      console.debug('UploadForm: Got property context', {
+        roomCount: context.rooms?.length,
+        itemCount: context.content_items?.length
+      });
+
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('rooms', JSON.stringify(context.rooms));
+      formData.append('contentItems', JSON.stringify(context.content_items));
+
+      // Call analysis function
+      const { data: result, error } = await supabase.functions.invoke(
+        'analyze-video',
+        { body: formData }
+      );
+
+      if (error) throw error;
+
+      console.debug('UploadForm: Video analysis complete', {
+        transcript: result.transcript,
+        analysis: result.analysis
+      });
+
+      // Update form fields
+      const form = this.container.querySelector('#findingForm');
+      if (form) {
+        form.description.value = result.analysis.description;
+        this.roomSelect.setValue(result.analysis.location);
+
+        if (result.analysis.contentItem) {
+          // Wait for content select to initialize
+          const checkInterval = setInterval(() => {
+            if (this.contentsSelect) {
+              clearInterval(checkInterval);
+              this.contentsSelect.setValue(result.analysis.contentItem);
+            }
+          }, 100);
+        }
+      }
+
+      this.updateAnalysisStatus('Analysis complete!', 'success');
+    } catch (error) {
+      console.error('UploadForm: Video analysis error:', error);
+      this.updateAnalysisStatus('Analysis failed: ' + error.message, 'error');
+      throw error;
+    } finally {
+      this.isAnalyzing = false;
+      // Clear status after delay
+      setTimeout(() => this.updateAnalysisStatus(''), 5000);
+    }
+  }
+
+  updateAnalysisStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#analysisStatus');
+    if (statusDiv) {
+      if (!message) {
+        statusDiv.innerHTML = '';
+        return;
+      }
+
+      const icon = type === 'error' ? 'AlertCircle' : 
+                   type === 'success' ? 'CheckCircle' : 
+                   'Loader2';
+      
+      const color = type === 'error' ? 'text-danger' :
+                    type === 'success' ? 'text-success' :
+                    'text-primary';
+
+      statusDiv.innerHTML = `
+        <div class="d-flex align-items-center gap-2 ${color} small">
+          ${IconService.createIcon(icon, { 
+            class: type === 'info' ? 'rotate' : '',
+            width: '16',
+            height: '16'
+          })}
+          ${message}
+        </div>
+      `;
+    }
   }
 
   updateImagePreviews() {

@@ -8,6 +8,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
+const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
 serve(async (req) => {
   try {
     // Handle CORS preflight
@@ -15,15 +19,61 @@ serve(async (req) => {
       return new Response(null, { headers: corsHeaders });
     }
 
+    // Get JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    // Verify JWT and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (authError || !user) {
+      throw new Error('Invalid authorization token');
+    }
+
     // Get form data
     const formData = await req.formData();
     const videoFile = formData.get('file');
     const rooms = JSON.parse(formData.get('rooms') as string);
     const contentItems = JSON.parse(formData.get('contentItems') as string);
+    const changeoverId = formData.get('changeoverId');
 
     if (!videoFile) {
       throw new Error('No video file provided');
     }
+
+    // Verify user has access to the changeover
+    const { data: changeover, error: changeoverError } = await supabase
+      .from('changeovers')
+      .select(`
+        id,
+        property:properties (
+          id,
+          created_by
+        )
+      `)
+      .eq('id', changeoverId)
+      .single();
+
+    if (changeoverError || !changeover) {
+      throw new Error('Changeover not found');
+    }
+
+    // Check if user owns the property or has a share token
+    const hasAccess = changeover.property.created_by === user.id;
+    if (!hasAccess) {
+      throw new Error('Access denied');
+    }
+
+    console.debug('Analyzing video for changeover', {
+      changeoverId,
+      userId: user.id,
+      roomCount: rooms.length,
+      itemCount: contentItems.length
+    });
 
     // Extract audio from WebM video
     const videoData = new Uint8Array(await (videoFile as File).arrayBuffer());
@@ -38,12 +88,18 @@ serve(async (req) => {
     const audioData = new Uint8Array(audioTrack.data);
     const wavBlob = new Blob([audioData], { type: 'audio/wav' });
 
+    console.debug('Extracted audio from video', {
+      audioSize: audioData.length,
+      format: 'wav'
+    });
+
     // Send to Whisper API
     const whisperFormData = new FormData();
     whisperFormData.append('file', wavBlob);
     whisperFormData.append('model', 'whisper-1');
     whisperFormData.append('language', 'en');
 
+    console.debug('Sending audio to Whisper API');
     const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
@@ -52,7 +108,17 @@ serve(async (req) => {
       body: whisperFormData
     });
 
+    if (!whisperResponse.ok) {
+      const error = await whisperResponse.json();
+      console.error('Whisper API error:', error);
+      throw new Error('Transcription failed');
+    }
+
     const transcript = await whisperResponse.json();
+    console.debug('Got transcript from Whisper', {
+      length: transcript.text.length,
+      preview: transcript.text.substring(0, 100)
+    });
 
     // Analyze transcript with GPT
     const prompt = `
@@ -69,7 +135,18 @@ serve(async (req) => {
       3. What is the issue or problem being described?
 
       Return as JSON with these fields: {location, contentItem, description}
+      
+      Rules:
+      - location must exactly match one of the provided room names
+      - contentItem must exactly match one of the provided item names
+      - description should be clear and concise
     `;
+
+    console.debug('Sending prompt to GPT', {
+      promptLength: prompt.length,
+      roomCount: rooms.length,
+      itemCount: contentItems.length
+    });
 
     const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -90,8 +167,20 @@ serve(async (req) => {
       })
     });
 
+    if (!gptResponse.ok) {
+      const error = await gptResponse.json();
+      console.error('GPT API error:', error);
+      throw new Error('Analysis failed');
+    }
+
     const analysis = await gptResponse.json();
     const result = JSON.parse(analysis.choices[0].message.content);
+
+    console.debug('Analysis complete', {
+      location: result.location,
+      hasContentItem: !!result.contentItem,
+      descriptionLength: result.description.length
+    });
 
     return new Response(
       JSON.stringify({ 
@@ -106,10 +195,13 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error analyzing video:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+        status: error.message.includes('authorization') ? 401 : 500
       }
     );
   }
