@@ -243,29 +243,50 @@ export class UploadForm {
     try {
       console.debug('UploadForm: Starting video analysis');
 
-      // Get property context
-      const { data: context, error: contextError } = await supabase.rpc(
-        'analyze_video_content',
-        { p_property_id: this.changeoverId }
-      );
+      // Get rooms for property
+      const { data: rooms, error: roomsError } = await supabase
+        .from('rooms')
+        .select('id, name')
+        .eq('property_id', this.changeoverId);
 
-      if (contextError) throw contextError;
+      if (roomsError) throw roomsError;
 
-      console.debug('UploadForm: Got property context', {
-        roomCount: context.rooms?.length,
-        itemCount: context.content_items?.length
+      // Get content items for property
+      const { data: roomDetails, error: detailsError } = await supabase
+        .from('room_details')
+        .select('contents')
+        .in('room_id', rooms.map(r => r.id));
+
+      if (detailsError) throw detailsError;
+
+      // Extract unique content items
+      const contentItems = [...new Set(
+        roomDetails
+          .flatMap(rd => rd.contents || [])
+          .map(item => item.name)
+          .filter(Boolean)
+      )];
+
+      console.debug('UploadForm: Got property data', {
+        roomCount: rooms?.length,
+        itemCount: contentItems?.length
       });
 
       // Prepare form data
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('rooms', JSON.stringify(context.rooms));
-      formData.append('contentItems', JSON.stringify(context.content_items));
+      formData.append('rooms', JSON.stringify(rooms));
+      formData.append('contentItems', JSON.stringify(contentItems));
 
       // Call analysis function
       const { data: result, error } = await supabase.functions.invoke(
         'analyze-video',
-        { body: formData }
+        { 
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        }
       );
 
       if (error) throw error;

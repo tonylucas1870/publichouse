@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
+import { Buffer } from 'https://deno.land/std@0.168.0/node/buffer.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,48 +37,26 @@ serve(async (req) => {
     // Get form data
     const formData = await req.formData();
     const videoFile = formData.get('file') as File;
-    const rooms = JSON.parse(formData.get('rooms') as string);
-    const contentItems = JSON.parse(formData.get('contentItems') as string);
-    const changeoverId = formData.get('changeoverId');
+    const rooms = JSON.parse(formData.get('rooms') as string || '[]');
+    const contentItems = JSON.parse(formData.get('contentItems') as string || '[]');
 
     if (!videoFile) {
       throw new Error('No video file provided');
     }
 
-    // Verify user has access to the changeover
-    const { data: changeover, error: changeoverError } = await supabase
-      .from('changeovers')
-      .select(`
-        id,
-        property:properties (
-          id,
-          created_by
-        )
-      `)
-      .eq('id', changeoverId)
-      .single();
-
-    if (changeoverError || !changeover) {
-      throw new Error('Changeover not found');
-    }
-
-    // Check if user owns the property or has a share token
-    const hasAccess = changeover.property.created_by === user.id;
-    if (!hasAccess) {
-      throw new Error('Access denied');
-    }
-
     console.debug('Analyzing video for changeover', {
-      changeoverId,
       userId: user.id,
       roomCount: rooms.length,
       itemCount: contentItems.length
     });
 
-    // Send video directly to Whisper API
-    // Whisper can handle video files and will extract audio internally
+    // Convert video file to ArrayBuffer
+    const arrayBuffer = await videoFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Create form data for Whisper API
     const whisperFormData = new FormData();
-    whisperFormData.append('file', videoFile);
+    whisperFormData.append('file', new Blob([buffer], { type: videoFile.type }), 'video.mov');
     whisperFormData.append('model', 'whisper-1');
     whisperFormData.append('language', 'en');
 
@@ -106,7 +85,7 @@ serve(async (req) => {
     const prompt = `
       Given the following context about a property:
       Rooms: ${rooms.map((r: any) => r.name).join(', ')}
-      Content Items: ${contentItems.map((i: any) => i.name).join(', ')}
+      Content Items: ${contentItems.map((i: any) => i.name || i).join(', ')}
 
       And this transcription of a video about a finding:
       "${transcript.text}"
