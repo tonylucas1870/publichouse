@@ -14,6 +14,7 @@ export class FindingsList {
   constructor(containerId, findingsService, changeoverId) {
     console.debug('FindingsList: Constructor', { changeoverId });
     this.container = document.getElementById(containerId);
+    this.currentView = localStorage.getItem('findings-view') || 'list'; // Default to list view
     if (!this.container) {
       throw new Error('Findings list container not found');
     }
@@ -188,7 +189,13 @@ export class FindingsList {
     this.container.querySelectorAll('.view-toggle').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === view);
       btn.classList.toggle('btn-outline-secondary', btn.dataset.view !== view);
-      btn.classList.toggle('btn-primary', btn.dataset.view === view);
+      if (btn.dataset.view === view) {
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-outline-secondary');
+      } else {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-secondary'); 
+      }
     });
   }
 
@@ -282,9 +289,8 @@ export class FindingsList {
     this.container.querySelectorAll('.view-toggle').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const view = btn.dataset.view;
-        console.debug('FindingsList: View toggle clicked', { view });
-        localStorage.setItem('findings-view', view);
         this.currentView = view;
+        localStorage.setItem('findings-view', view);
         this.render();
       });
     });

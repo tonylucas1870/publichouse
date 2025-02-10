@@ -14,23 +14,37 @@ export function getStoragePath(bucket, fileName) {
 
 // Storage operations
 export async function uploadFile(bucket, file, options = {}) {
-  const fileName = createStorageFileName(file.name);
-  const filePath = getStoragePath(bucket, fileName);
-  const uploadedAt = new Date().toISOString();
+  try {
+    console.debug('Uploading file:', { bucket, fileName: file.name, fileType: file.type });
 
-  const { error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-      ...options
-    });
+    const fileName = createStorageFileName(file.name);
+    const filePath = getStoragePath(bucket, fileName);
+    const uploadedAt = new Date().toISOString();
 
-  if (uploadError) throw uploadError;
+    // Upload file
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        ...options
+      });
 
-  const { data: { publicUrl } } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(filePath);
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      throw uploadError;
+    }
 
-  return { fileName, filePath, publicUrl, uploadedAt };
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    console.debug('File uploaded successfully:', { filePath, publicUrl });
+
+    return { fileName, filePath, publicUrl, uploadedAt };
+  } catch (error) {
+    console.error('Error in uploadFile:', error);
+    throw new Error('Failed to upload file: ' + error.message);
+  }
 }
