@@ -245,16 +245,21 @@ export class TaskModal {
 
       // Create task data
       const taskData = {
-        id: task?.id,
-        title: form.title.value.trim(),
-        location: form.location.value.trim(),
-        description: form.description.value.trim() || null,
+        propertyId, // Ensure we're passing propertyId from the modal
         property_id: propertyId,
+        title: form.title.value.trim(),
+        description: form.description.value.trim() || null,
+        location: form.location.value.trim(),
         scheduling_type: schedulingType,
         interval: interval,
         images: currentImages || []
       };
 
+      console.debug('TaskModal: Submitting task data', {
+        propertyId,
+        taskData,
+        isUpdate: !!task
+      });
       try {
         // If this is an update, update images separately
         if (task?.id) {

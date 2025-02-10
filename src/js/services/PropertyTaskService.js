@@ -40,35 +40,55 @@ export class PropertyTaskService {
 
   async addTask({ propertyId, title, description, location, scheduling_type, interval, images }) {
     try {
-      console.debug('PropertyTaskService: Adding task', { 
-        propertyId, 
-        title, 
+      // Validate required fields
+      if (!propertyId) {
+        throw new Error('Property ID is required');
+      }
+
+      console.debug('PropertyTaskService: Adding task', {
+        propertyId,
+        title,
         location,
         scheduling_type,
         interval,
-        imageCount: images?.length 
+        imageCount: images?.length,
+        fullPayload: {
+          property_id: propertyId,
+          title,
+          description,
+          location,
+          scheduling_type,
+          interval,
+          images: images || []
+        }
       });
 
       const { data, error } = await supabase
         .from('property_tasks')
         .insert({
-          property_id: propertyId,
+          property_id: propertyId, // Ensure this matches the column name exactly
           title,
           description,
           location,
-          scheduling_type: scheduling_type || null,
-          interval: interval || null,
+          scheduling_type,
+          interval,
           images: images || []
         })
         .select()
         .single();
 
+      console.debug('PropertyTaskService: Task creation response', { data, error });
+
       if (error) {
-        console.error('PropertyTaskService: Error adding task', error);
+        console.error('PropertyTaskService: Error creating task', {
+          error,
+          propertyId,
+          title
+        });
         throw error;
       }
 
-      console.debug('PropertyTaskService: Task added successfully', data);
+      console.debug('PropertyTaskService: Task created successfully', { taskId: data.id });
       return data;
     } catch (error) {
       console.error('PropertyTaskService: Error in addTask', error);

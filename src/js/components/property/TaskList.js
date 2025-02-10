@@ -315,7 +315,9 @@ export class TaskList {
     const addTaskBtn = this.container.querySelector('#addTaskBtn');
     if (addTaskBtn) {
       addTaskBtn.addEventListener('click', () => {
+        console.debug('TaskList: Opening add task modal', { propertyId: this.propertyId });
         TaskModal.show(null, this.propertyId, this.taskService, async (taskData) => {
+          console.debug('TaskList: Task modal save callback', { taskData });
           await this.taskService.addTask(taskData);
           await this.initialize();
         });
