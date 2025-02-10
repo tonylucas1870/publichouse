@@ -12,13 +12,19 @@ export function createImagePreview(file) {
   });
 }
 
-export function validateMedia(file, { maxSize = 50 * 1024 * 1024, types = ['image/jpeg', 'image/png', 'video/mp4', 'video/webm'] } = {}) {
+export function validateMedia(file, { maxSize = 50 * 1024 * 1024, types = [
+  'image/jpeg',
+  'image/png',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime'  // For .mov files
+] } = {}) {
   if (!file) {
     return 'Please select an image or video';
   }
 
   if (!types.includes(file.type)) {
-    return 'Please select a valid image or video file (JPEG, PNG, MP4, WebM)';
+    return `Please select a valid image or video file (JPEG, PNG, MP4, WebM, MOV). Got: ${file.type}`;
   }
 
   if (file.size > maxSize) {

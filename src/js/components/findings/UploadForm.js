@@ -5,9 +5,18 @@ import { RoomDetailsService } from '../../services/RoomDetailsService.js';
 import { RoomService } from '../../services/RoomService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { validateMedia } from '../../utils/imageUtils.js';
+import { convertToMP4, needsConversion } from '../../utils/videoUtils.js';
+import { supabase } from '../../lib/supabase.js';
 
 export class UploadForm {
   constructor(containerId, findingsService, findingsList, changeoverId) {
+    console.debug('UploadForm: Initializing', { 
+      containerId,
+      hasService: !!findingsService,
+      hasList: !!findingsList,
+      changeoverId
+    });
+
     this.container = document.getElementById(containerId);
     if (!this.container) {
       throw new Error('Upload form container not found');
@@ -18,6 +27,7 @@ export class UploadForm {
     this.selectedImages = [];
     this.roomSelect = null;
     this.roomDetailsService = new RoomDetailsService();
+    this.isAnalyzing = false;
     
     this.render();
     this.attachEventListeners();
@@ -61,6 +71,7 @@ export class UploadForm {
             class="d-none"
             multiple
           />
+          <div id="analysisStatus" class="mb-2"></div>
           <button type="button" class="btn btn-outline-primary w-100" id="addImagesBtn">
             ${IconService.createIcon('Upload')}
             Upload Images/Videos
@@ -79,6 +90,7 @@ export class UploadForm {
     const imageInput = this.container.querySelector('#imageInput');
     const addImagesBtn = this.container.querySelector('#addImagesBtn');
     this.contentsSelect = null;
+    this.analysisStatus = this.container.querySelector('#analysisStatus');
 
     // Initialize RoomSelect
     this.roomSelect = new RoomSelect('locationContainer', this.changeoverId);
@@ -115,9 +127,14 @@ export class UploadForm {
 
     addImagesBtn.addEventListener('click', () => imageInput.click());
 
-    imageInput.addEventListener('change', (e) => {
+    imageInput.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files || []);
-      files.forEach(file => {
+      console.debug('UploadForm: Files selected', { 
+        count: files.length,
+        types: files.map(f => f.type)
+      });
+
+      for (const file of files) {
         const error = validateMedia(file);
         const isVideo = file.type.startsWith('video/');
         if (error) {
@@ -125,17 +142,52 @@ export class UploadForm {
           return;
         }
 
+        let processedFile = file;
+
+        // If it's a video, analyze it first
+        if (isVideo) {
+          console.debug('UploadForm: Processing video file', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          });
+
+          // Convert MOV to MP4 if needed
+          if (needsConversion(file)) {
+            try {
+              this.updateAnalysisStatus('Converting video format...');
+              processedFile = await convertToMP4(file);
+              console.debug('UploadForm: Video converted', {
+                originalType: file.type,
+                newType: processedFile.type
+              });
+            } catch (error) {
+              console.error('UploadForm: Video conversion failed', error);
+              showErrorAlert('Video conversion failed: ' + error.message);
+              return;
+            }
+          }
+
+          try {
+            await this.analyzeVideo(file);
+          } catch (error) {
+            console.error('UploadForm: Video analysis failed', error);
+            showErrorAlert('Video analysis failed: ' + error.message);
+            return;
+          }
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
           this.selectedImages.push({
-            file,
+            file: processedFile,
             isVideo,
             previewUrl: e.target.result
           });
           this.updateImagePreviews();
         };
-        reader.readAsDataURL(file);
-      });
+        reader.readAsDataURL(processedFile);
+      }
     });
 
     form.addEventListener('submit', async (e) => {
@@ -176,7 +228,7 @@ export class UploadForm {
         await this.findingsService.add({
           description: form.description.value.trim(),
           location: this.roomSelect.getValue(),
-          content_item: contentItem, // Match the database column name
+          content_item: contentItem,
           images: this.selectedImages.length > 0 ? this.selectedImages.map(img => img.file) : [],
           changeoverId: this.changeoverId
         });
@@ -198,6 +250,138 @@ export class UploadForm {
         showErrorAlert(error.message || 'Failed to submit finding');
       }
     });
+  }
+
+  async analyzeVideo(file) {
+    if (this.isAnalyzing) {
+      console.debug('UploadForm: Video analysis already in progress');
+      return;
+    }
+
+    this.isAnalyzing = true;
+    this.updateAnalysisStatus('Analyzing video...');
+
+    try {
+      console.debug('UploadForm: Starting video analysis');
+
+      // Get rooms from RoomSelect
+      const rooms = await this.roomSelect.getRooms();
+      
+      // Get content items from room details
+      const { data: roomDetails } = await supabase
+        .from('room_details')
+        .select('contents')
+        .in('room_id', rooms.map(r => r.id))
+        .throwOnError();
+
+      const contentItems = roomDetails
+        .flatMap(rd => rd.contents || [])
+        .filter(Boolean)
+        .map(item => item.name || item);
+
+      console.debug('UploadForm: Got property data', {
+        roomCount: rooms?.length,
+        itemCount: contentItems?.length
+      });
+
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('rooms', JSON.stringify(rooms));
+      formData.append('contentItems', JSON.stringify(contentItems));
+
+      // Call analysis function
+      const response = await supabase.functions.invoke(
+        'analyze-video',
+        { 
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Analysis failed');
+      }
+
+      const result = response.data;
+      if (!result) {
+        throw new Error('No analysis results returned');
+      }
+
+      console.debug('UploadForm: Video analysis complete', {
+        transcript: result.transcript,
+        analysis: result.analysis
+      });
+
+      // Update form fields
+      const form = this.container.querySelector('#findingForm');
+      if (form) {
+        if (result.analysis.description) {
+          form.description.value = result.analysis.description;
+        }
+        
+        if (result.analysis.location) {
+          this.roomSelect.setValue(result.analysis.location);
+        }
+
+        if (result.analysis.contentItem) {
+          // Wait for content select to initialize
+          const checkInterval = setInterval(() => {
+            if (this.contentsSelect) {
+              clearInterval(checkInterval);
+              try {
+                this.contentsSelect.setValue(result.analysis.contentItem);
+              } catch (error) {
+                console.error('Error setting content item:', error);
+              }
+            }
+          }, 100);
+        }
+      }
+
+      this.updateAnalysisStatus('Analysis complete!', 'success');
+    } catch (error) {
+      console.error('UploadForm: Video analysis error:', error);
+      const errorMessage = error.message || 'Analysis failed';
+      this.updateAnalysisStatus(errorMessage, 'error');
+      showErrorAlert(errorMessage);
+      throw error;
+    } finally {
+      this.isAnalyzing = false;
+      // Clear status after delay
+      setTimeout(() => this.updateAnalysisStatus(''), 5000);
+    }
+  }
+
+  updateAnalysisStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#analysisStatus');
+    if (statusDiv) {
+      if (!message) {
+        statusDiv.innerHTML = '';
+        return;
+      }
+
+      const icon = type === 'error' ? 'AlertCircle' : 
+                   type === 'success' ? 'CheckCircle' : 
+                   'Loader2';
+      
+      const color = type === 'error' ? 'text-danger' :
+                    type === 'success' ? 'text-success' :
+                    'text-primary';
+
+      statusDiv.innerHTML = `
+        <div class="d-flex align-items-center gap-2 ${color} small">
+          ${IconService.createIcon(icon, { 
+            class: type === 'info' ? 'rotate' : '',
+            width: '16',
+            height: '16'
+          })}
+          ${message}
+        </div>
+      `;
+    }
   }
 
   updateImagePreviews() {
