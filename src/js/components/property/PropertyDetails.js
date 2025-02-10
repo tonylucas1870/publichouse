@@ -84,6 +84,18 @@ export class PropertyDetails {
       <div class="mb-4">
         ${Navigation.renderBackButton()}
       </div>
+      
+      <!-- Findings -->
+      ${CollapsibleSection.render({
+        title: 'Findings',
+        icon: 'Search',
+        headerClass: 'bg-primary bg-opacity-10',
+        content: {
+          headerContent: '',
+          body: `<div id="findingsContainer" data-is-admin="${this.property.isAdmin || false}"></div>`
+        },
+        isCollapsed: CollapsibleSection.getStoredState('findings')
+      })}
 
       <!-- Property Management Card -->
       <div class="card mb-4">
@@ -145,6 +157,7 @@ export class PropertyDetails {
     // Initialize sub-components
     new RoomList('roomListContainer', this.property.id, this.property.isAdmin);
     new PropertyUtilities('utilitiesContainer', this.property.id, this.property.isAdmin);
+    new PendingFindingsList('findingsContainer', this.findingsService);
     
     // Initialize collapsible sections
     CollapsibleSection.attachEventListeners(this.container);
