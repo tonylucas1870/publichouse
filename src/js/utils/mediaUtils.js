@@ -8,7 +8,8 @@
 export function isVideo(url) {
   if (!url) return false;
   const urlStr = typeof url === 'string' ? url : url.url;
-  return urlStr.toLowerCase().includes('.mp4') || urlStr.toLowerCase().includes('.webm');
+  return urlStr.toLowerCase().includes('.mp4') || 
+        urlStr.toLowerCase().includes('.mov');
 }
 
 /**
@@ -19,7 +20,11 @@ export function getContentType(fileOrUrl) {
   
   // Handle File objects
   if (fileOrUrl instanceof File) {
-    return fileOrUrl.type;
+    // Special handling for MOV files
+    if (fileOrUrl.type === 'video/quicktime') {
+      return 'video';
+    }
+    return fileOrUrl.type.split('/')[0]; // Returns 'image' or 'video'
   }
   
   // Handle URLs

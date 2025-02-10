@@ -5,6 +5,8 @@ import { RoomDetailsService } from '../../services/RoomDetailsService.js';
 import { RoomService } from '../../services/RoomService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { validateMedia } from '../../utils/imageUtils.js';
+import { convertToMP4, needsConversion } from '../../utils/videoUtils.js';
+import { supabase } from '../../lib/supabase.js';
 
 export class UploadForm {
   constructor(containerId, findingsService, findingsList, changeoverId) {
@@ -132,13 +134,15 @@ export class UploadForm {
         types: files.map(f => f.type)
       });
 
-      files.forEach(async file => {
+      for (const file of files) {
         const error = validateMedia(file);
         const isVideo = file.type.startsWith('video/');
         if (error) {
           showErrorAlert(error);
           return;
         }
+
+        let processedFile = file;
 
         // If it's a video, analyze it first
         if (isVideo) {
@@ -148,25 +152,42 @@ export class UploadForm {
             type: file.type
           });
 
+          // Convert MOV to MP4 if needed
+          if (needsConversion(file)) {
+            try {
+              this.updateAnalysisStatus('Converting video format...');
+              processedFile = await convertToMP4(file);
+              console.debug('UploadForm: Video converted', {
+                originalType: file.type,
+                newType: processedFile.type
+              });
+            } catch (error) {
+              console.error('UploadForm: Video conversion failed', error);
+              showErrorAlert('Video conversion failed: ' + error.message);
+              return;
+            }
+          }
+
           try {
             await this.analyzeVideo(file);
           } catch (error) {
             console.error('UploadForm: Video analysis failed', error);
             showErrorAlert('Video analysis failed: ' + error.message);
+            return;
           }
         }
 
         const reader = new FileReader();
         reader.onload = (e) => {
           this.selectedImages.push({
-            file,
+            file: processedFile,
             isVideo,
             previewUrl: e.target.result
           });
           this.updateImagePreviews();
         };
-        reader.readAsDataURL(file);
-      });
+        reader.readAsDataURL(processedFile);
+      }
     });
 
     form.addEventListener('submit', async (e) => {
@@ -243,29 +264,20 @@ export class UploadForm {
     try {
       console.debug('UploadForm: Starting video analysis');
 
-      // Get rooms for property
-      const { data: rooms, error: roomsError } = await supabase
-        .from('rooms')
-        .select('id, name')
-        .eq('property_id', this.changeoverId);
-
-      if (roomsError) throw roomsError;
-
-      // Get content items for property
-      const { data: roomDetails, error: detailsError } = await supabase
+      // Get rooms from RoomSelect
+      const rooms = await this.roomSelect.getRooms();
+      
+      // Get content items from room details
+      const { data: roomDetails } = await supabase
         .from('room_details')
         .select('contents')
-        .in('room_id', rooms.map(r => r.id));
+        .in('room_id', rooms.map(r => r.id))
+        .throwOnError();
 
-      if (detailsError) throw detailsError;
-
-      // Extract unique content items
-      const contentItems = [...new Set(
-        roomDetails
-          .flatMap(rd => rd.contents || [])
-          .map(item => item.name)
-          .filter(Boolean)
-      )];
+      const contentItems = roomDetails
+        .flatMap(rd => rd.contents || [])
+        .filter(Boolean)
+        .map(item => item.name || item);
 
       console.debug('UploadForm: Got property data', {
         roomCount: rooms?.length,
@@ -279,7 +291,7 @@ export class UploadForm {
       formData.append('contentItems', JSON.stringify(contentItems));
 
       // Call analysis function
-      const { data: result, error } = await supabase.functions.invoke(
+      const response = await supabase.functions.invoke(
         'analyze-video',
         { 
           body: formData,
@@ -289,7 +301,14 @@ export class UploadForm {
         }
       );
 
-      if (error) throw error;
+      if (response.error) {
+        throw new Error(response.error.message || 'Analysis failed');
+      }
+
+      const result = response.data;
+      if (!result) {
+        throw new Error('No analysis results returned');
+      }
 
       console.debug('UploadForm: Video analysis complete', {
         transcript: result.transcript,
@@ -299,15 +318,24 @@ export class UploadForm {
       // Update form fields
       const form = this.container.querySelector('#findingForm');
       if (form) {
-        form.description.value = result.analysis.description;
-        this.roomSelect.setValue(result.analysis.location);
+        if (result.analysis.description) {
+          form.description.value = result.analysis.description;
+        }
+        
+        if (result.analysis.location) {
+          this.roomSelect.setValue(result.analysis.location);
+        }
 
         if (result.analysis.contentItem) {
           // Wait for content select to initialize
           const checkInterval = setInterval(() => {
             if (this.contentsSelect) {
               clearInterval(checkInterval);
-              this.contentsSelect.setValue(result.analysis.contentItem);
+              try {
+                this.contentsSelect.setValue(result.analysis.contentItem);
+              } catch (error) {
+                console.error('Error setting content item:', error);
+              }
             }
           }, 100);
         }
@@ -316,7 +344,9 @@ export class UploadForm {
       this.updateAnalysisStatus('Analysis complete!', 'success');
     } catch (error) {
       console.error('UploadForm: Video analysis error:', error);
-      this.updateAnalysisStatus('Analysis failed: ' + error.message, 'error');
+      const errorMessage = error.message || 'Analysis failed';
+      this.updateAnalysisStatus(errorMessage, 'error');
+      showErrorAlert(errorMessage);
       throw error;
     } finally {
       this.isAnalyzing = false;

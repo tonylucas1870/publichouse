@@ -24,7 +24,7 @@ export function validateMedia(file, { maxSize = 50 * 1024 * 1024, types = [
   }
 
   if (!types.includes(file.type)) {
-    return 'Please select a valid image or video file (JPEG, PNG, MP4, WebM, MOV)';
+    return `Please select a valid image or video file (JPEG, PNG, MP4, WebM, MOV). Got: ${file.type}`;
   }
 
   if (file.size > maxSize) {

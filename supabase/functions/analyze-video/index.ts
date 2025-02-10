@@ -13,12 +13,12 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 serve(async (req) => {
-  try {
-    // Handle CORS preflight
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
 
+  try {
     // Get JWT token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -44,10 +44,11 @@ serve(async (req) => {
       throw new Error('No video file provided');
     }
 
-    console.debug('Analyzing video for changeover', {
+    console.debug('Analyzing video', {
       userId: user.id,
       roomCount: rooms.length,
-      itemCount: contentItems.length
+      itemCount: contentItems.length,
+      videoType: videoFile.type
     });
 
     // Convert video file to ArrayBuffer
@@ -72,7 +73,7 @@ serve(async (req) => {
     if (!whisperResponse.ok) {
       const error = await whisperResponse.json();
       console.error('Whisper API error:', error);
-      throw new Error('Transcription failed: ' + error.error?.message || 'Unknown error');
+      throw new Error('Transcription failed: ' + (error.error?.message || 'Unknown error'));
     }
 
     const transcript = await whisperResponse.json();
@@ -131,7 +132,7 @@ serve(async (req) => {
     if (!gptResponse.ok) {
       const error = await gptResponse.json();
       console.error('GPT API error:', error);
-      throw new Error('Analysis failed: ' + error.error?.message || 'Unknown error');
+      throw new Error('Analysis failed: ' + (error.error?.message || 'Unknown error'));
     }
 
     const analysis = await gptResponse.json();
