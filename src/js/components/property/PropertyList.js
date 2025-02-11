@@ -6,6 +6,7 @@ import { ErrorDisplay } from '../ui/ErrorDisplay.js';
 import { CollapsibleSection } from '../ui/CollapsibleSection.js';
 import { CollapsibleList } from '../ui/CollapsibleList.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
+import { supabase } from '../../lib/supabase.js';
 
 export class PropertyList {
   constructor(containerId, propertyService) {
@@ -28,6 +29,15 @@ export class PropertyList {
   async initialize() {
     try {
       this.showLoading();
+      
+      try {
+        // Get demo property ID if it exists
+        const { data: demoData } = await supabase.rpc('get_demo_property');
+        this.demoPropertyId = demoData;
+      } catch (error) {
+        console.debug('Demo property not found:', error);
+      }
+      
       this.properties = await this.propertyService.getProperties();
       this.render();
     } catch (error) {
@@ -47,6 +57,12 @@ export class PropertyList {
   render() {
     const content = {
       headerContent: `
+        ${!this.properties.length ? `
+          <button class="btn btn-outline-primary btn-sm me-2" id="viewDemoBtn">
+            ${IconService.createIcon('Eye')}
+            View Demo
+          </button>
+        ` : ''}
         <button class="btn btn-primary btn-sm" id="addPropertyBtn">
           ${IconService.createIcon('Plus')}
           Add
@@ -107,6 +123,8 @@ export class PropertyList {
   attachEventListeners() {
     // Add Property button
     const addPropertyBtn = this.container.querySelector('#addPropertyBtn');
+    const viewDemoBtn = this.container.querySelector('#viewDemoBtn');
+    
     if (addPropertyBtn) {
       addPropertyBtn.addEventListener('click', () => {
         PropertyModal.show(async (formData) => {
@@ -117,6 +135,42 @@ export class PropertyList {
             showErrorAlert(error.message || 'Failed to create property');
           }
         });
+      });
+    }
+
+    // View Demo button
+    if (viewDemoBtn) {
+      viewDemoBtn.addEventListener('click', async () => {
+        try {
+          viewDemoBtn.disabled = true;
+          viewDemoBtn.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Loading Demo...
+          `;
+
+          // Create demo property if it doesn't exist
+          if (!this.demoPropertyId) {
+            const { data } = await supabase.rpc('create_demo_property');
+            this.demoPropertyId = data;
+          }
+          
+          // Navigate to demo property
+          if (this.demoPropertyId) {
+            showErrorAlert('Loading demo property...', 'success');
+            window.location.href = `/?property=${this.demoPropertyId}`;
+          } else {
+            throw new Error('Failed to create demo property');
+          }
+        } catch (error) {
+          console.error('Demo error:', error);
+          showErrorAlert('Failed to load demo. Please try again.');
+        } finally {
+          viewDemoBtn.disabled = false;
+          viewDemoBtn.innerHTML = `
+            ${IconService.createIcon('Eye')}
+            View Demo
+          `;
+        }
       });
     }
 
