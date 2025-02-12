@@ -41,11 +41,7 @@ export class CalendarService {
     DebugLogger.log('CalendarService', 'Starting calendar sync', {
       propertyId,
       bookingsCount: bookings.length,
-      firstBooking: bookings[0] ? {
-        uid: bookings[0].uid,
-        start: bookings[0].start,
-        end: bookings[0].end
-      } : null
+      bookingIds: bookings.map(b => b.uid)
     });
 
     try {
@@ -73,6 +69,26 @@ export class CalendarService {
         DebugLogger.error('CalendarService', 'Failed to update sync status', statusError);
       }
 
+      // Get all existing bookings for this property
+      const { data: existingChangeovers, error: fetchError } = await supabase
+        .from('changeovers')
+        .select('id, calendar_booking_id, checkin_date, checkout_date')
+        .eq('property_id', propertyId)
+        .not('calendar_booking_id', 'is', null);
+
+      if (fetchError) {
+        DebugLogger.error('CalendarService', 'Error fetching existing changeovers', fetchError);
+        throw fetchError;
+      }
+
+      // Create map of existing bookings by calendar ID
+      const existingBookings = new Map(
+        existingChangeovers?.map(c => [c.calendar_booking_id, c]) || []
+      );
+
+      // Track which bookings we've processed
+      const processedBookingIds = new Set();
+
       // Process each booking
       for (const booking of bookings) {
         DebugLogger.log('CalendarService', 'Processing booking', {
@@ -82,20 +98,8 @@ export class CalendarService {
         });
 
         try {
-          // Check for existing booking
-          const { data: existing, error: checkError } = await supabase
-            .from('changeovers')
-            .select('id')
-            .eq('calendar_booking_id', booking.uid)
-            .maybeSingle();
-
-          if (checkError) {
-            DebugLogger.error('CalendarService', 'Error checking existing booking', {
-              error: checkError,
-              bookingId: booking.uid
-            });
-            continue;
-          }
+          const existing = existingBookings.get(booking.uid);
+          processedBookingIds.add(booking.uid);
 
           DebugLogger.log('CalendarService', 'Existing booking check', {
             bookingId: booking.uid,
@@ -103,14 +107,17 @@ export class CalendarService {
             existingId: existing?.id
           });
 
-          // Only create if no existing booking found
+          const checkinDate = booking.start.toISOString().split('T')[0];
+          const checkoutDate = booking.end.toISOString().split('T')[0];
+
           if (!existing) {
+            // Create new booking
             const { error: insertError } = await supabase
               .from('changeovers')
               .insert({
                 property_id: propertyId,
-                checkin_date: booking.start.toISOString().split('T')[0],
-                checkout_date: booking.end.toISOString().split('T')[0],
+                checkin_date: checkinDate,
+                checkout_date: checkoutDate,
                 calendar_booking_id: booking.uid,
                 created_by: user.id
               });
@@ -130,10 +137,68 @@ export class CalendarService {
             DebugLogger.log('CalendarService', 'Created new changeover', {
               bookingId: booking.uid
             });
+          } else if (
+            existing.checkin_date !== checkinDate ||
+            existing.checkout_date !== checkoutDate
+          ) {
+            // Update if dates have changed
+            const { error: updateError } = await supabase
+              .from('changeovers')
+              .update({
+                checkin_date: checkinDate,
+                checkout_date: checkoutDate
+              })
+              .eq('id', existing.id);
+
+            if (updateError) {
+              DebugLogger.error('CalendarService', 'Failed to update changeover', {
+                error: updateError,
+                booking: {
+                  uid: booking.uid,
+                  start: booking.start,
+                  end: booking.end
+                }
+              });
+              throw updateError;
+            }
+
+            DebugLogger.log('CalendarService', 'Updated existing changeover', {
+              bookingId: booking.uid,
+              oldDates: {
+                checkin: existing.checkin_date,
+                checkout: existing.checkout_date
+              },
+              newDates: {
+                checkin: checkinDate,
+                checkout: checkoutDate
+              }
+            });
           }
         } catch (bookingError) {
           DebugLogger.error('CalendarService', `Error processing booking ${booking.uid}`, bookingError);
           continue;
+        }
+      }
+
+      // Find and delete removed bookings
+      const removedBookings = Array.from(existingBookings.entries())
+        .filter(([id]) => !processedBookingIds.has(id))
+        .map(([_, changeover]) => changeover.id);
+
+      if (removedBookings.length > 0) {
+        DebugLogger.log('CalendarService', 'Deleting removed bookings', {
+          count: removedBookings.length,
+          ids: removedBookings
+        });
+
+        const { error: deleteError } = await supabase
+          .from('changeovers')
+          .delete()
+          .in('id', removedBookings);
+
+        if (deleteError) {
+          DebugLogger.error('CalendarService', 'Failed to delete removed bookings', deleteError);
+          throw deleteError;
         }
       }
 
