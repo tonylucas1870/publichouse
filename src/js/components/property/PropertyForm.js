@@ -15,10 +15,10 @@ export class PropertyForm {
         <div class="mb-3">
           <label for="propertyAddress" class="form-label d-flex align-items-center gap-2">
             ${IconService.createIcon('MapPin')}
-            Address
+            Address (Optional)
           </label>
           <textarea class="form-control" id="propertyAddress" rows="2" 
-                    required>${property.address}</textarea>
+                    >${property.address || ''}</textarea>
         </div>
         <div class="mb-3">
           <label for="calendarUrl" class="form-label d-flex align-items-center gap-2">

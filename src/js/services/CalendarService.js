@@ -8,26 +8,24 @@ export class CalendarService {
     DebugLogger.log('CalendarService', 'Starting calendar fetch', { url });
     
     try {
-      // Use a CORS proxy to fetch the ICS file
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-      DebugLogger.log('CalendarService', 'Using proxy URL', { proxyUrl });
-
-      const response = await fetch(proxyUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Fetch calendar data through Supabase function
+      const { data, error } = await supabase.functions.invoke('fetch-calendar', {
+        body: { url }
+      });
+      if (error) {
+        throw error;
       }
 
-      const icsData = await response.text();
-      if (!icsData) {
+      if (!data?.icsData) {
         throw new Error('Empty response from calendar URL');
       }
 
       DebugLogger.log('CalendarService', 'Received calendar data', {
-        dataLength: icsData.length,
-        preview: icsData.substring(0, 100)
+        dataLength: data.icsData.length,
+        preview: data.icsData.substring(0, 100)
       });
 
-      const bookings = parseICS(icsData);
+      const bookings = parseICS(data.icsData);
       DebugLogger.log('CalendarService', 'Parsed bookings', {
         count: bookings.length
       });
