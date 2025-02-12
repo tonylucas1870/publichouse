@@ -115,6 +115,32 @@ function parseICSDate(dateStr) {
 }
 
 /**
+ * Converts an Airbnb calendar URL to its public listing URL
+ * @param {string} calendarUrl - The calendar URL (e.g. https://www.airbnb.com/calendar/ical/123.ics?s=abc)
+ * @returns {string|null} The public listing URL or null if not an Airbnb URL
+ */
+export function getAirbnbListingUrl(calendarUrl) {
+  try {
+    // Return null if not an Airbnb URL
+    if (!calendarUrl?.includes('airbnb.com')) {
+      return null;
+    }
+
+    // Extract listing ID from calendar URL
+    const match = calendarUrl.match(/\/calendar\/ical\/(\d+)\.ics/);
+    if (!match?.[1]) {
+      return null;
+    }
+
+    // Construct public listing URL
+    return `https://www.airbnb.com/rooms/${match[1]}`;
+  } catch (error) {
+    console.error('Error parsing Airbnb URL:', error);
+    return null;
+  }
+}
+
+/**
  * Validates a calendar URL
  * @param {string} url 
  * @returns {boolean}
