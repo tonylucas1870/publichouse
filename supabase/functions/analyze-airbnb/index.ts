@@ -79,7 +79,7 @@ serve(async (req) => {
 
       IMPORTANT: The property may already have some rooms and contents configured.
 
-      You must use the description data, along with downloading any of the linked images of the property and analysing them to identify pieces of furniture or equipment in them, and combining that data to produce the most accurate results possible.  Where possible for the rooms or contents also provide links to the images that identify the items.  e.g if there is a picture of the king bed in a bedroom, or a kettle in the kitchen.
+      You must use the description date.  The file also contains multiple URLS to images of the property.  You should download these and analyse each one to identify items of furniture within each picture.  If you cannot download and analyse these you should tell me, you should then be combining that data to produce the most accurate results possible.  Where possible for the rooms or contents also provide links to the images that identify the items.  e.g if there is a picture of the king bed in a bedroom, or a kettle in the kitchen.
       You must:
       1. Preserve existing rooms and their contents
       2. Add new rooms that don't exist
@@ -97,8 +97,8 @@ serve(async (req) => {
       2. Each content item should have:
          - name (clear, descriptive name)
          - description (brief description including key details)
-      3. Focus on permanent fixtures and furniture, not consumables or small items
-      4. Group similar items together (e.g. "Dining Chairs" instead of listing each chair)
+      3. Focus on permanent fixtures and furniture, not consumables
+      4. Group similar items together (e.g. "Dining Chairs" instead of listing each chair).  If possible provide a count for the number of items if there is multiple.
       5.  Where multiple rooms are of the same or similar names, for example bedrooms, kep them as individual rooms, do not group them together.
       5. Use standard room names that match common property management categories
       6. Include any special features or high-value items mentioned
