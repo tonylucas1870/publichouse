@@ -3,6 +3,7 @@ import { CalendarService } from '../../services/CalendarService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { isValidCalendarUrl } from '../../utils/calendarUtils.js';
 import { DebugLogger } from '../../utils/debugUtils.js';
+import { supabase } from '../../lib/supabase.js';
 
 export class CalendarSync {
   constructor(containerId, propertyId, calendarUrl) {
@@ -85,7 +86,7 @@ export class CalendarSync {
       // Show syncing state
       this.isSyncing = true;
       this.render();
-
+      
       // Fetch and parse calendar data
       const bookings = await this.calendarService.fetchCalendarData(this.calendarUrl);
       
@@ -93,7 +94,6 @@ export class CalendarSync {
         count: bookings.length,
         firstBooking: bookings[0] 
       });
-      console.debug('CalendarSync: Fetched bookings', { count: bookings.length });
 
       // Sync with database
       await this.calendarService.syncPropertyCalendar(this.propertyId, bookings);
