@@ -104,6 +104,8 @@ serve(async (req) => {
       6. Include any special features or high-value items mentioned
       7. Note any smart home or electronic devices
 
+      You MUST mark which items you have identified using the linked images and which ones you have identified using the description
+
       Listing Data:
       ${JSON.stringify(listingData, null, 2)}
 
