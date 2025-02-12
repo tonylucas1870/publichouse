@@ -78,6 +78,8 @@ serve(async (req) => {
       amenities, and other details provided.
 
       IMPORTANT: The property may already have some rooms and contents configured.
+
+      You must use the description data, along with downloading any of the linked images of the property and analysing them to identify pieces of furniture or equipment in them, and combining that data to produce the most accurate results possible.  Where possible for the rooms or contents also provide links to the images that identify the items.  e.g if there is a picture of the king bed in a bedroom, or a kettle in the kitchen.
       You must:
       1. Preserve existing rooms and their contents
       2. Add new rooms that don't exist
@@ -97,6 +99,7 @@ serve(async (req) => {
          - description (brief description including key details)
       3. Focus on permanent fixtures and furniture, not consumables or small items
       4. Group similar items together (e.g. "Dining Chairs" instead of listing each chair)
+      5.  Where multiple rooms are of the same or similar names, for example bedrooms, kep them as individual rooms, do not group them together.
       5. Use standard room names that match common property management categories
       6. Include any special features or high-value items mentioned
       7. Note any smart home or electronic devices
@@ -131,7 +134,7 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [{
           role: 'system',
           content: 'You are a JSON-only response bot. You must return only valid JSON without any additional text or formatting.'
