@@ -71,7 +71,9 @@ serve(async (req) => {
     }
 
     const prompt = `
-      Analyze this Airbnb listing data and extract room and content information.
+      You are an expert at analyzing property listings and identifying rooms and contents.
+      Your task is to analyze this Airbnb listing data and extract room and content information.
+      
       Create a structured list of rooms and their contents based on the description,
       amenities, and other details provided.
 
@@ -94,7 +96,7 @@ serve(async (req) => {
          - name (clear, descriptive name)
          - description (brief description including key details)
       3. Focus on permanent fixtures and furniture, not consumables or small items
-      4. Group similar items together (e.g. "Dining Chairs" instead of listing each chair).  If possible add a count e.g 6 Dining Chairs rather than just specifying multiple items.
+      4. Group similar items together (e.g. "Dining Chairs" instead of listing each chair)
       5. Use standard room names that match common property management categories
       6. Include any special features or high-value items mentioned
       7. Note any smart home or electronic devices
@@ -102,8 +104,7 @@ serve(async (req) => {
       Listing Data:
       ${JSON.stringify(listingData, null, 2)}
 
-      If it is possible to ascertain either through design, listed modal or serial numbers, or any other identifying items, a closer detailed description of an item, e.g a specific size, model, colour, edition then you should do so, but only if confident, otherwise stick with a broader description.
-      Return as JSON with this structure:
+      Return ONLY a valid JSON object with this exact structure:
       {
         "rooms": [{
           "name": string,
@@ -118,6 +119,9 @@ serve(async (req) => {
 
       Include "isNew" flag for each room to indicate if it's a new room,
       and "hasNewContents" to indicate if any new contents were added to an existing room.
+      
+      DO NOT include any explanatory text or markdown formatting.
+      ONLY return the JSON object.
     `;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -130,12 +134,13 @@ serve(async (req) => {
         model: 'gpt-4',
         messages: [{
           role: 'system',
-          content: 'You are an expert at analyzing property listings and identifying rooms and contents while preserving existing configurations.'
+          content: 'You are a JSON-only response bot. You must return only valid JSON without any additional text or formatting.'
         }, {
           role: 'user',
           content: prompt
         }],
-        temperature: 0.3 // Lower temperature for more focused output
+        temperature: 0.3, // Lower temperature for more focused output
+        response_format: { type: "json_object" } // Force JSON response
       })
     });
 
@@ -144,8 +149,19 @@ serve(async (req) => {
       throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
     }
 
-    const analysis = await response.json();
-    const result = JSON.parse(analysis.choices[0].message.content);
+    const gptResponse = await response.json();
+    console.debug('Got GPT response:', {
+      content: gptResponse.choices[0].message.content.substring(0, 100) + '...'
+    });
+
+    let result;
+    try {
+      // Parse the response content as JSON
+      result = JSON.parse(gptResponse.choices[0].message.content);
+    } catch (parseError) {
+      console.error('Error parsing GPT response:', parseError);
+      throw new Error('Invalid JSON response from analysis');
+    }
 
     console.debug('Analysis complete', {
       roomCount: result.rooms.length,
