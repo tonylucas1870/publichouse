@@ -154,31 +154,63 @@ serve(async (req) => {
 
     // Analyze transcript with GPT
     const prompt = `
-      Given the following context about a property:
-      Rooms: ${rooms.map((r: any) => r.name).join(', ')}
-      Content Items: ${contentItems.map((i: any) => i.name || i).join(', ')}
+      You are an expert at analyzing property listings and identifying rooms and contents.
+      Your task is to analyze this video transcription and extract relevant information.
 
-      And this transcription of a video about a finding:
+      IMPORTANT: The property may already have some rooms and contents configured.
+      If no rooms are configured yet, focus on extracting general information.
+
+      You must:
+      1. If rooms exist:
+         - Preserve existing rooms and their contents
+         - Add new rooms that don't exist
+         - Add new contents to existing rooms if they're different items
+         - DO NOT duplicate existing items in the same room
+         - If a similar item exists in a different room, treat it as a new item
+      2. If no rooms exist:
+         - Extract general information about the finding
+         - Identify the type of room being discussed (e.g. bedroom, kitchen)
+         - Identify any furniture or items mentioned
+         - Note any specific details about condition or issues
+
+      Existing Property Configuration:
+      ${JSON.stringify(rooms, null, 2)}
+
+      Transcription:
       "${transcript.text}"
 
-      Extract the following information:
-      1. Which room from the list is being discussed?
-      2. Which content item from the list is involved (if any)?
-      3. What is the issue or problem being described?
+      Return ONLY a valid JSON object with this exact structure:
+      {
+        "generalInfo": {
+          "roomType": string | null,
+          "itemType": string | null,
+          "condition": string | null
+        },
+        "rooms": [{
+          "name": string,
+          "contents": [{
+            "name": string,
+            "description": string
+          }],
+          "isNew": boolean,
+          "hasNewContents": boolean
+        }]
+      }
 
-      Return as JSON with these fields: {location, contentItem, description}
+      Notes:
+      - The generalInfo object will be used when no rooms exist
+      - For rooms array, include "isNew" flag to indicate if it's a new room
+      - Include "hasNewContents" to indicate if any new contents were added
+      - If no rooms exist, return an empty array for rooms
       
-      Rules:
-      - location must exactly match one of the provided room names
-      - contentItem must exactly match one of the provided item names
-      - description should be clear and concise
+      DO NOT include any explanatory text or markdown formatting.
+      ONLY return the JSON object.
     `;
 
     debugLog('GPT Request', {
       model: 'gpt-4',
       promptLength: prompt.length,
       roomCount: rooms.length,
-      itemCount: contentItems.length,
       transcriptLength: transcript.text.length
     });
 
@@ -219,23 +251,39 @@ serve(async (req) => {
 
     debugLog('Analysis Result', {
       raw: analysis.choices[0].message.content,
-      parsed: result,
-      matchedRoom: rooms.some((r: any) => r.name === result.location),
-      matchedItem: contentItems.some((i: any) => (i.name || i) === result.contentItem)
+      parsed: result
     });
 
+    // Validate result structure
+    if (!Array.isArray(result.rooms)) {
+      throw new Error('Invalid analysis result: rooms must be an array');
+    }
+
+    // Validate generalInfo structure when no rooms exist
+    if (result.rooms.length === 0 && !result.generalInfo) {
+      throw new Error('When no rooms exist, generalInfo must be provided');
+    }
+
+    for (const room of result.rooms) {
+      if (!room.name || !Array.isArray(room.contents)) {
+        throw new Error('Invalid room structure in analysis result');
+      }
+      for (const item of room.contents) {
+        if (!item.name || !item.description) {
+          throw new Error('Invalid content item structure in analysis result');
+        }
+      }
+    }
+
     return new Response(
-      JSON.stringify({ 
-        transcript: transcript.text,
-        analysis: result
-      }),
+      JSON.stringify(result),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
       }
     );
   } catch (error) {
-    console.error('Error analyzing video:', error);
+    console.error('Video analysis error:', error);
     debugLog('Error', {
       message: error.message,
       stack: error.stack,

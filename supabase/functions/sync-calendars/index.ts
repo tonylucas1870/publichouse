@@ -122,8 +122,9 @@ serve(async (req) => {
 
             const checkinDate = booking.start.toISOString().split('T')[0];
             const checkoutDate = booking.end.toISOString().split('T')[0];
-
+            console.debug("Booking ID is" + booking.uid)
             if (!existing) {
+              console.debug("Creating New Booking")
               // Create new booking
               await supabase
                 .from('changeovers')
@@ -138,6 +139,7 @@ serve(async (req) => {
               existing.checkin_date !== checkinDate ||
               existing.checkout_date !== checkoutDate
             ) {
+              console.debug("Date change of existing booking")
               // Update if dates changed
               await supabase
                 .from('changeovers')
@@ -155,6 +157,7 @@ serve(async (req) => {
             .map(([_, changeover]) => changeover.id);
 
           if (removedBookings.length > 0) {
+            console.debug("Removing Bookings:" + JSON.stringify(removedBookings))
             await supabase
               .from('changeovers')
               .delete()
