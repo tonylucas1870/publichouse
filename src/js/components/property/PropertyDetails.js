@@ -220,6 +220,7 @@ export class PropertyDetails {
       );
 
       this.property = updatedProperty;
+      this.property.isAdmin = true; // Preserve admin status
       this.isEditing = false;
       this.render();
       this.attachEventListeners();

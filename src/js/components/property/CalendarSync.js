@@ -3,6 +3,7 @@ import { CalendarService } from '../../services/CalendarService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { isValidCalendarUrl } from '../../utils/calendarUtils.js';
 import { DebugLogger } from '../../utils/debugUtils.js';
+import { supabase } from '../../lib/supabase.js';
 
 export class CalendarSync {
   constructor(containerId, propertyId, calendarUrl) {
@@ -23,7 +24,7 @@ export class CalendarSync {
     const isAdmin = this.container.dataset.isAdmin === 'true';
     if (!this.calendarUrl) {
       this.container.innerHTML = `
-        <div class="alert alert-warning d-flex align-items-center gap-2 mb-0">
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-0">
           ${IconService.createIcon('Calendar')}
           No calendar URL configured
         </div>
@@ -35,7 +36,18 @@ export class CalendarSync {
       <div class="d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">
           ${IconService.createIcon('Calendar')}
-          <span>Calendar Connected</span>
+          <div>
+            <div>Calendar Connected</div>
+            ${this.property?.calendar_sync_status ? `
+              <small class="text-muted">
+                ${this.property.calendar_sync_status === 'synced' ? 
+                  `Last synced: ${this.property.calendar_last_synced ? new Date(this.property.calendar_last_synced).toLocaleString() : 'Never'}` :
+                  `Status: ${this.property.calendar_sync_status}`}
+                ${this.property.calendar_sync_error ? 
+                  `<br>Error: ${this.property.calendar_sync_error}` : ''}
+              </small>
+            ` : ''}
+          </div>
         </div>
         ${isAdmin ? `
         <button class="btn btn-outline-primary btn-sm" id="syncCalendarBtn" ${this.isSyncing ? 'disabled' : ''}>
@@ -61,6 +73,8 @@ export class CalendarSync {
   async handleSync() {
     if (this.isSyncing) return;
 
+    console.debug('CalendarSync: Starting sync', { url: this.calendarUrl });
+
     try {
       DebugLogger.log('CalendarSync', 'Starting sync', { url: this.calendarUrl });
 
@@ -72,7 +86,7 @@ export class CalendarSync {
       // Show syncing state
       this.isSyncing = true;
       this.render();
-
+      
       // Fetch and parse calendar data
       const bookings = await this.calendarService.fetchCalendarData(this.calendarUrl);
       
@@ -84,8 +98,20 @@ export class CalendarSync {
       // Sync with database
       await this.calendarService.syncPropertyCalendar(this.propertyId, bookings);
 
+      // Refresh property data to get updated sync status
+      const { data: property } = await supabase
+        .from('properties')
+        .select('calendar_sync_status, calendar_last_synced, calendar_sync_error')
+        .eq('id', this.propertyId)
+        .single();
+
+      if (property) {
+        this.property = property;
+      }
+
       showErrorAlert('Calendar synced successfully', 'success');
     } catch (error) {
+      console.error('CalendarSync: Sync failed', error);
       DebugLogger.error('CalendarSync', 'Sync failed', error);
       showErrorAlert(error.message || 'Failed to sync calendar');
     } finally {
@@ -95,6 +121,20 @@ export class CalendarSync {
   }
 
   initialize() {
-    this.render();
+    // Get initial property status
+    supabase
+      .from('properties')
+      .select('calendar_sync_status, calendar_last_synced, calendar_sync_error')
+      .eq('id', this.propertyId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          this.property = data;
+          this.render();
+        }
+      })
+      .catch(error => {
+        console.error('Error getting property sync status:', error);
+      });
   }
 }

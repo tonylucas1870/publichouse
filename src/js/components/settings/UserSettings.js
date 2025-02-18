@@ -83,6 +83,13 @@ export class UserSettings {
                       Status changes
                     </label>
                   </div>
+                  <div class="form-check mb-2">
+                    <input type="checkbox" class="form-check-input" id="changeover_deleted"
+                           ${this.isEnabled(preferences, 'changeover_deleted') ? 'checked' : ''}>
+                    <label class="form-check-label" for="changeover_deleted">
+                      Cancelled changeovers
+                    </label>
+                  </div>
                 </div>
 
                 <div class="mb-4">
