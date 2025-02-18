@@ -86,13 +86,15 @@ serve(async (req) => {
           console.log(`Processing property ${property.id}`);
 
           // Update sync status to pending
-          await supabase
+          const { error: pendingError } = await supabase
             .from('properties')
             .update({
               calendar_sync_status: 'pending',
               calendar_sync_error: null
             })
             .eq('id', property.id);
+
+          if (pendingError) throw pendingError;
 
           // Fetch and parse calendar data
           const icsData = await fetchCalendarData(property.calendar_url);
@@ -126,7 +128,7 @@ serve(async (req) => {
             if (!existing) {
               console.debug("Creating New Booking")
               // Create new booking
-              await supabase
+              const { error: insertError } = await supabase
                 .from('changeovers')
                 .insert({
                   property_id: property.id,
@@ -135,19 +137,37 @@ serve(async (req) => {
                   calendar_booking_id: booking.uid,
                   created_by: property.created_by
                 });
+              
+              if (insertError) {
+                console.error('Error creating booking:', insertError);
+                throw insertError;
+              }
             } else if (
               existing.checkin_date !== checkinDate ||
               existing.checkout_date !== checkoutDate
             ) {
               console.debug("Date change of existing booking")
+              console.debug("Updating booking", {
+                id: existing.id,
+                oldCheckin: existing.checkin_date,
+                newCheckin: checkinDate,
+                oldCheckout: existing.checkout_date,
+                newCheckout: checkoutDate
+              });
+
               // Update if dates changed
-              await supabase
+              const { error: updateError } = await supabase
                 .from('changeovers')
                 .update({
                   checkin_date: checkinDate,
                   checkout_date: checkoutDate
                 })
                 .eq('id', existing.id);
+
+              if (updateError) {
+                console.error('Error updating booking:', updateError);
+                throw updateError;
+              }
             }
           }
 
@@ -158,14 +178,19 @@ serve(async (req) => {
 
           if (removedBookings.length > 0) {
             console.debug("Removing Bookings:" + JSON.stringify(removedBookings))
-            await supabase
+            const { error: deleteError } = await supabase
               .from('changeovers')
               .delete()
               .in('id', removedBookings);
+
+            if (deleteError) {
+              console.error('Error deleting bookings:', deleteError);
+              throw deleteError;
+            }
           }
 
           // Update sync status
-          await supabase
+          const { error: syncError } = await supabase
             .from('properties')
             .update({
               calendar_sync_status: 'synced',
@@ -174,6 +199,8 @@ serve(async (req) => {
               initial_sync_complete: true
             })
             .eq('id', property.id);
+
+          if (syncError) throw syncError;
 
           return {
             propertyId: property.id,
