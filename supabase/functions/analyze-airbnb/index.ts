@@ -172,7 +172,7 @@ serve(async (req) => {
 
     // Get request body
     const { listingData: listingDataStr, propertyId } = await req.json();
-    if (!listingData || !propertyId) {
+    if (!listingDataStr || !propertyId) {
       throw new Error('Listing data and property ID are required');
     }
     const listingData = JSON.parse(listingDataStr);
@@ -234,7 +234,8 @@ serve(async (req) => {
       method: 'POST',
       headers: {
        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v1'
       },
       body: JSON.stringify({
         model: 'gpt-4o',
@@ -289,6 +290,18 @@ serve(async (req) => {
     try {
       // Parse the response content as JSON
       result = JSON.parse(gptResponse.choices[0].message.content);
+      
+      // Validate result structure
+      if (!result.property || !Array.isArray(result.rooms)) {
+        throw new Error('Invalid analysis result structure');
+      }
+
+      // Validate each room
+      result.rooms.forEach(room => {
+        if (!room.name || !room.type || !Array.isArray(room.contents)) {
+          throw new Error('Invalid room structure in analysis result');
+        }
+      });
     } catch (parseError) {
       console.error('Error parsing GPT response:', parseError);
       throw new Error('Invalid JSON response from analysis');
