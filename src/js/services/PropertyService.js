@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase.js';
 import { handleSupabaseError } from '../utils/errorUtils.js';
 import { CalendarService } from './CalendarService.js';
+import { AirbnbService } from './AirbnbService.js';
+import { getAirbnbListingUrl } from '../utils/calendarUtils.js';
 import { showErrorAlert } from '../utils/alertUtils.js';
 
 export class PropertyService {
@@ -48,11 +50,40 @@ export class PropertyService {
       
       // If calendar URL provided, trigger sync
       if (data && formData.calendar_url) {
+        // Check if it's an Airbnb URL
+        const isAirbnb = getAirbnbListingUrl(formData.calendar_url);
+        
         try {
+          if (isAirbnb) {
+            console.debug('PropertyService: Processing Airbnb property', {
+              propertyId: data.id,
+              url: formData.calendar_url
+            });
+            
+            // Initialize Airbnb service
+            const airbnbService = new AirbnbService();
+            airbnbService.setPropertyId(data.id);
+            
+            // Get listing details
+            const listingDetails = await airbnbService.getListingDetails(formData.calendar_url);
+            
+            // Analyze listing data
+            const analysis = await airbnbService.analyzeListingData(listingDetails);
+            
+            // Import rooms and contents
+            await airbnbService.importRoomsAndContents(data.id, analysis);
+            
+            showErrorAlert('Property created and Airbnb data imported successfully', 'success');
+          }
+          
+          // Sync calendar regardless of Airbnb status
           const calendarService = new CalendarService();
           const bookings = await calendarService.fetchCalendarData(formData.calendar_url);
           await calendarService.syncPropertyCalendar(data.id, bookings);
-          showErrorAlert('Property created and calendar synced successfully', 'success');
+          
+          if (!isAirbnb) {
+            showErrorAlert('Property created and calendar synced successfully', 'success');
+          }
         } catch (syncError) {
           console.error('Error syncing calendar:', syncError);
           showErrorAlert('Property created but calendar sync failed. You can retry sync later.');
@@ -110,6 +141,34 @@ export class PropertyService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Please sign in to update properties');
 
+      // Check if calendar URL is being updated to an Airbnb URL
+      if (updates.calendar_url) {
+        const isAirbnb = getAirbnbListingUrl(updates.calendar_url);
+        if (isAirbnb) {
+          try {
+            console.debug('PropertyService: Processing Airbnb property update', {
+              propertyId: id,
+              url: updates.calendar_url
+            });
+            
+            // Initialize Airbnb service
+            const airbnbService = new AirbnbService();
+            airbnbService.setPropertyId(id);
+            
+            // Get listing details
+            const listingDetails = await airbnbService.getListingDetails(updates.calendar_url);
+            
+            // Analyze listing data
+            const analysis = await airbnbService.analyzeListingData(listingDetails);
+            
+            // Import rooms and contents
+            await airbnbService.importRoomsAndContents(id, analysis);
+          } catch (airbnbError) {
+            console.error('Error processing Airbnb data:', airbnbError);
+            showErrorAlert('Property updated but Airbnb data import failed. You can retry later.');
+          }
+        }
+      }
       const { data, error } = await supabase
         .from('properties')
         .update(updates)

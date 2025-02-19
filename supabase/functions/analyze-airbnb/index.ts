@@ -171,11 +171,11 @@ serve(async (req) => {
     }
 
     // Get request body
-    var { listingData, propertyId } = await req.json();
+    const { listingData: listingDataStr, propertyId } = await req.json();
     if (!listingData || !propertyId) {
       throw new Error('Listing data and property ID are required');
     }
-    listingData = JSON.parse(listingData);
+    const listingData = JSON.parse(listingDataStr);
     const listingImages = listingData.images || [];
     console.debug("Listing Data Type:", typeof listingData);
     console.debug(listingData);
