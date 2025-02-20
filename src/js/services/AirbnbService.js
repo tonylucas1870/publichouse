@@ -32,11 +32,7 @@ const validateContentItem = (item) => {
 
 // Validation schema for rooms
 const validateRoom = (room) => {
-  const requiredFields = ['name', 'type', 'contents', 'isNew'];
-  const validTypes = [
-    'bedroom', 'living_room', 'kitchen', 'bathroom',
-    'utility', 'outdoor', 'dining_room', 'office', 'other'
-  ];
+  const requiredFields = ['name', 'contents', 'isNew'];
   
   // Check required fields
   for (const field of requiredFields) {
@@ -45,18 +41,14 @@ const validateRoom = (room) => {
     }
   }
   
-  // Validate room type
-  if (!validTypes.includes(room.type)) {
-    throw new Error(`Invalid room type "${room.type}". Must be one of: ${validTypes.join(', ')}`);
-  }
-  
   // Validate contents array
   if (!Array.isArray(room.contents)) {
     throw new Error('Room contents must be an array');
   }
   
   // Validate each content item
-  room.contents.forEach(validateContentItem);
+  //Disabled for now
+  //room.contents.forEach(validateContentItem);
 };
 
 export class AirbnbService {
@@ -116,7 +108,7 @@ export class AirbnbService {
       // Call Supabase Edge Function to analyze listing
       const { data, error } = await supabase.functions.invoke('analyze-airbnb', {
         body: { 
-          listingData: JSON.stringify(listingData),
+          listingData: listingData,
           propertyId: this.propertyId
         }
       });
@@ -180,8 +172,7 @@ export class AirbnbService {
             .from('rooms')
             .insert({
               property_id: propertyId,
-              name: room.name,
-              type: room.type
+              name: room.name
             })
             .select()
             .single();
