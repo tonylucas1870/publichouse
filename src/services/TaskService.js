@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../js/lib/supabase.js';
 import { handleSupabaseError } from '../utils/errorUtils.js';
 
 export class TaskService {

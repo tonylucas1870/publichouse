@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js';
 
 // Storage path and file name utilities
 export function createStorageFileName(originalName) {
