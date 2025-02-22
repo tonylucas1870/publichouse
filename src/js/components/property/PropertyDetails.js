@@ -14,6 +14,7 @@ import { showErrorAlert } from '../../utils/alertUtils.js';
 import { Navigation } from '../ui/Navigation.js';
 import { LoadingSpinner } from '../ui/LoadingSpinner.js'; 
 import { CollapsibleSection } from '../ui/CollapsibleSection.js';
+import { ICalFeedInfo } from './ICalFeedInfo.js';
 
 export class PropertyDetails {
   constructor(containerId) {
@@ -111,6 +112,7 @@ export class PropertyDetails {
           }
           ${!this.isEditing ? `
             <div class="mt-3" id="calendarSyncContainer" data-is-admin="${this.property.isAdmin}"></div>
+            <div class="mt-3" id="icalFeedContainer"></div>
           ` : ''}
         </div>
       </div>
@@ -174,6 +176,11 @@ export class PropertyDetails {
     // Initialize calendar sync if not editing
     if (!this.isEditing && this.property.calendar_url) {
       new CalendarSync('calendarSyncContainer', this.property.id, this.property.calendar_url, this.property.isAdmin);
+    }
+
+    // Initialize iCal feed info
+    if (!this.isEditing && this.property) {
+      new ICalFeedInfo('icalFeedContainer', this.property.id);
     }
   }
 

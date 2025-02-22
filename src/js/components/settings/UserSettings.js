@@ -2,6 +2,7 @@ import { IconService } from '../../services/IconService.js';
 import { NotificationService } from '../../services/NotificationService.js';
 import { showErrorAlert } from '../../utils/alertUtils.js';
 import { validateForm } from '../../utils/formUtils.js';
+import { ICalFeedInfo } from '../property/ICalFeedInfo.js';
 
 export class UserSettings {
   constructor(containerId) {
@@ -16,6 +17,9 @@ export class UserSettings {
       this.preferences = preferences;
       this.render(preferences);
       this.attachEventListeners();
+      
+      // Initialize global iCal feed after render
+      new ICalFeedInfo('globalIcalFeedContainer');
     } catch (error) {
       console.error('Error initializing user settings:', error);
       this.showError(error.message);
@@ -25,6 +29,19 @@ export class UserSettings {
   render(preferences) {
     this.container.innerHTML = `
       <div class="row g-4">
+        <!-- Calendar Feed -->
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header bg-transparent d-flex align-items-center gap-2">
+              ${IconService.createIcon('Calendar')}
+              <h3 class="h5 mb-0">Calendar Feed</h3>
+            </div>
+            <div class="card-body">
+              <div id="globalIcalFeedContainer"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Display Name -->
         <div class="col-12 col-lg-6">
           <div class="card">
