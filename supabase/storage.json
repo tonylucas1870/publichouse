@@ -1,0 +1,20 @@
+{
+  "buckets": [
+    {
+      "name": "findings",
+      "public": false
+    },
+    {
+      "name": "furniture",
+      "public": false
+    },
+    {
+      "name": "contents",
+      "public": false
+    },
+    {
+      "name": "tasks",
+      "public": false
+    }
+  ]
+}
