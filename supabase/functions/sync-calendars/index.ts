@@ -117,8 +117,16 @@ serve(async (req) => {
           // Track processed bookings
           const processedIds = new Set();
 
+          // Sort bookings by start date
+          const sortedBookings = bookings.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+          // Process each booking except the last one if it's from Airbnb
+          const processableBookings = property.calendar_url.toLowerCase().includes('airbnb.com')
+            ? sortedBookings.slice(0, -1)  // Skip last booking for Airbnb
+            : sortedBookings;
+
           // Process each booking
-          for (const booking of bookings) {
+          for (const booking of processableBookings) {
             const existing = existingBookings.get(booking.uid);
             processedIds.add(booking.uid);
 
@@ -171,9 +179,17 @@ serve(async (req) => {
             }
           }
 
-          // Find and delete removed bookings
+          // Find and delete removed bookings, but keep past bookings
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
           const removedBookings = Array.from(existingBookings.entries())
-            .filter(([id]) => !processedIds.has(id))
+            .filter(([id, changeover]) => {
+              // Don't delete if not in processedIds AND starts before today
+              const startDate = new Date(changeover.checkin_date);
+              startDate.setHours(0, 0, 0, 0);
+              return !processedIds.has(id) && startDate >= today;
+            })
             .map(([_, changeover]) => changeover.id);
 
           if (removedBookings.length > 0) {

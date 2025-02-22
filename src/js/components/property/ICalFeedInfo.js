@@ -100,37 +100,29 @@ export class ICalFeedInfo {
     const feedUrl = await this.getFeedUrl();
     if (!feedUrl) {
       this.container.innerHTML = `
-        <div class="alert alert-warning">
+        <p class="text-warning d-flex align-items-center gap-2">
           ${IconService.createIcon('ExclamationTriangle')}
           Unable to generate calendar feed URL. Please try refreshing the page.
-        </div>
+        </p>
       `;
       return;
     }
 
     this.container.innerHTML = `
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-            ${IconService.createIcon('Calendar')}
-            Calendar Feed
-          </h5>
-          <p class="card-text">
-            Subscribe to your changeovers in your preferred calendar application:
-          </p>
-          <div class="input-group">
-            <input type="text" class="form-control" value="${feedUrl}" readonly>
-            <button class="btn btn-outline-primary" type="button" data-action="copy-url">
-              ${IconService.createIcon('Copy')}
-              Copy
-            </button>
-          </div>
-          <div class="mt-3">
-            <small class="text-muted">
-              This URL is private to your account. Don't share it with others.
-            </small>
-          </div>
-        </div>
+      <p class="card-text">
+        Subscribe to your changeovers in your preferred calendar application:
+      </p>
+      <div class="input-group">
+        <input type="text" class="form-control" value="${feedUrl}" readonly>
+        <button class="btn btn-outline-primary" type="button" data-action="copy-url">
+          ${IconService.createIcon('Copy')}
+          Copy
+        </button>
+      </div>
+      <div class="mt-3">
+        <small class="text-muted">
+          This URL is private to your account. Don't share it with others.
+        </small>
       </div>
     `;
   }
